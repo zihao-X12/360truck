@@ -64,7 +64,7 @@ export const constantRoutes = [
     children: [
       {
         path: '/index',
-        component: () => import('@/views/dashboard/index'),
+        component: () => import('@/views/truck/dashboard/index'),
         name: 'Index',
         meta: { title: '首页', icon: 'dashboard', affix: true }
       }
@@ -88,6 +88,20 @@ export const constantRoutes = [
 
 // 动态路由，基于用户权限动态去加载
 export const dynamicRoutes = [
+  {
+    path: '/truck/vehicle-detail',
+    component: Layout,
+    hidden: true,
+    permissions: ['truck:vehicle:query'],
+    children: [
+      {
+        path: ':vehicleId?',
+        component: () => import('@/views/truck/vehicle/detail'),
+        name: 'TruckVehicleDetail',
+        meta: { title: '车辆详情', activeMenu: '/truck/vehicle' }
+      }
+    ]
+  },
   {
     path: '/system/user-auth',
     component: Layout,
@@ -127,20 +141,6 @@ export const dynamicRoutes = [
         component: () => import('@/views/system/dict/data'),
         name: 'Data',
         meta: { title: '字典数据', activeMenu: '/system/dict' }
-      }
-    ]
-  },
-  {
-    path: '/monitor/job-log',
-    component: Layout,
-    hidden: true,
-    permissions: ['monitor:job:list'],
-    children: [
-      {
-        path: 'index/:jobId(\\d+)',
-        component: () => import('@/views/monitor/job/log'),
-        name: 'JobLog',
-        meta: { title: '调度日志', activeMenu: '/monitor/job' }
       }
     ]
   },

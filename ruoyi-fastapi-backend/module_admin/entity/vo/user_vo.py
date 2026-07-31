@@ -97,6 +97,7 @@ class UserRowModel(UserModel):
     """
 
     dept: DeptModel | None = Field(default=None, description='部门信息')
+    roles: list[RoleModel] = Field(default=[], description='角色信息')
 
 
 class UserRoleModel(BaseModel):

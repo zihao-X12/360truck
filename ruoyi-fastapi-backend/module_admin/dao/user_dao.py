@@ -333,6 +333,28 @@ class UserDao:
         return user_list
 
     @classmethod
+    async def get_user_roles(cls, db: AsyncSession, user_ids: list[int]) -> dict[int, list[SysRole]]:
+        """批量获取用户角色。"""
+        if not user_ids:
+            return {}
+        rows = (
+            await db.execute(
+                select(SysUserRole.user_id, SysRole)
+                .join(SysRole, SysUserRole.role_id == SysRole.role_id)
+                .where(
+                    SysUserRole.user_id.in_(user_ids),
+                    SysRole.status == '0',
+                    SysRole.del_flag == '0',
+                )
+                .order_by(SysRole.role_sort)
+            )
+        ).all()
+        result: dict[int, list[SysRole]] = {}
+        for user_id, role in rows:
+            result.setdefault(user_id, []).append(role)
+        return result
+
+    @classmethod
     async def add_user_dao(cls, db: AsyncSession, user: UserModel) -> SysUser:
         """
         新增用户数据库操作

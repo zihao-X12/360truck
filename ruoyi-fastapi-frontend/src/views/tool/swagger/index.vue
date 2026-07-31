@@ -5,5 +5,7 @@
 <script setup>
 import iFrame from '@/components/iFrame'
 
-const url = ref(import.meta.env.VITE_APP_BASE_API + "/proxy-docs")
+// FastAPI exposes the generated OpenAPI UI at /docs. The frontend API prefix
+// keeps this request on the configured gateway in each environment.
+const url = ref(`${import.meta.env.VITE_APP_BASE_API}/docs`)
 </script>

@@ -33,16 +33,8 @@ import { parseTime, resetForm, addDateRange, handleTree, selectDictLabel, select
 import Pagination from '@/components/Pagination'
 // 自定义表格工具组件
 import RightToolbar from '@/components/RightToolbar'
-// 富文本组件
-import Editor from "@/components/Editor"
-// 文件上传组件
-import FileUpload from "@/components/FileUpload"
 // 业务附件上传组件
 import BusinessFileUpload from "@/components/BusinessFileUpload"
-// 图片上传组件
-import ImageUpload from "@/components/ImageUpload"
-// 图片预览组件
-import ImagePreview from "@/components/ImagePreview"
 // 字典标签组件
 import DictTag from '@/components/DictTag'
 
@@ -62,12 +54,8 @@ app.config.globalProperties.selectDictLabels = selectDictLabels
 // 全局组件挂载
 app.component('DictTag', DictTag)
 app.component('Pagination', Pagination)
-app.component('FileUpload', FileUpload)
 app.component('BusinessFileUpload', BusinessFileUpload)
-app.component('ImageUpload', ImageUpload)
-app.component('ImagePreview', ImagePreview)
 app.component('RightToolbar', RightToolbar)
-app.component('Editor', Editor)
 
 app.use(router)
 app.use(store)

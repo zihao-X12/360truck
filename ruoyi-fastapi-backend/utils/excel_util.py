@@ -35,7 +35,7 @@ class ExcelUtil:
         :return: list数据对应excel的二进制数据
         """
         mapping_data = cls.__mapping_list(list_data, mapping_dict)
-        df = pd.DataFrame(mapping_data)
+        df = pd.DataFrame(mapping_data, columns=list(mapping_dict.values()))
         binary_data = io.BytesIO()
         df.to_excel(binary_data, index=False, engine='openpyxl')
         binary_data = binary_data.getvalue()

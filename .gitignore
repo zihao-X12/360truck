@@ -57,6 +57,7 @@ cover/
 
 # Django stuff:
 *.log
+*.pid
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
@@ -107,6 +108,8 @@ celerybeat.pid
 # Environments
 .env
 .venv
+.npm-cache/
+.runtime/
 env/
 venv/
 ENV/

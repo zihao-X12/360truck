@@ -65,16 +65,32 @@ class UserService:
         """
         query_result = await UserDao.get_user_list(query_db, query_object, data_scope_sql, is_page)
         if is_page:
+            role_map = await UserDao.get_user_roles(query_db, [row[0]['userId'] for row in query_result.rows])
             user_list_result = PageModel[UserRowModel](
                 **{
                     **query_result.model_dump(by_alias=True),
-                    'rows': [{**row[0], 'dept': row[1]} for row in query_result.rows],
+                    'rows': [
+                        {
+                            **row[0],
+                            'dept': row[1],
+                            'roles': CamelCaseUtil.transform_result(role_map.get(row[0]['userId'], [])),
+                        }
+                        for row in query_result.rows
+                    ],
                 }
             )
         else:
             user_list_result = []
             if query_result:
-                user_list_result = [{**row[0], 'dept': row[1]} for row in query_result]
+                role_map = await UserDao.get_user_roles(query_db, [row[0]['userId'] for row in query_result])
+                user_list_result = [
+                    {
+                        **row[0],
+                        'dept': row[1],
+                        'roles': CamelCaseUtil.transform_result(role_map.get(row[0]['userId'], [])),
+                    }
+                    for row in query_result
+                ]
 
         return user_list_result
 

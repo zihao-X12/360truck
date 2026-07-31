@@ -145,10 +145,14 @@ class APIDocsUtil:
             return await cls._custom_openapi(app)
 
         async def custom_redoc(request: Request) -> HTMLResponse:
-            return await cls._custom_redoc(app, redoc_js_url, redoc_favicon_url)
+            return await cls._custom_redoc(
+                app, redoc_js_url, redoc_favicon_url, request.scope.get('root_path', '')
+            )
 
         async def custom_swagger(request: Request) -> HTMLResponse:
-            return await cls._custom_swagger(app, swagger_js_url, swagger_css_url, swagger_favicon_url)
+            return await cls._custom_swagger(
+                app, swagger_js_url, swagger_css_url, swagger_favicon_url, request.scope.get('root_path', '')
+            )
 
         async def custom_swagger_ui_redirect(request: Request) -> HTMLResponse:
             return await cls._custom_swagger_ui_redirect(app, swagger_favicon_url)
@@ -188,6 +192,7 @@ class APIDocsUtil:
         app: FastAPI,
         redoc_js_url: str,
         redoc_favicon_url: str,
+        root_path: str,
     ) -> HTMLResponse:
         """
         自定义 ReDoc 路由处理函数
@@ -199,7 +204,7 @@ class APIDocsUtil:
         """
         if not AppConfig.app_disable_redoc:
             return get_redoc_html(
-                openapi_url=cls._OPENAPI_URL,
+                openapi_url=cls._get_openapi_url(app, root_path),
                 title=f'{app.title} - ReDoc',
                 redoc_js_url=redoc_js_url,
                 redoc_favicon_url=redoc_favicon_url,
@@ -217,6 +222,7 @@ class APIDocsUtil:
         swagger_js_url: str,
         swagger_css_url: str,
         swagger_favicon_url: str,
+        root_path: str,
     ) -> HTMLResponse:
         """
         自定义 Swagger UI 路由处理函数
@@ -229,7 +235,7 @@ class APIDocsUtil:
         """
         if not AppConfig.app_disable_swagger:
             return get_swagger_ui_html(
-                openapi_url=cls._OPENAPI_URL,
+                openapi_url=cls._get_openapi_url(app, root_path),
                 title=f'{app.title} - Swagger UI',
                 swagger_js_url=swagger_js_url,
                 swagger_css_url=swagger_css_url,
@@ -303,6 +309,10 @@ class APIDocsUtil:
         </html>
         """
         return HTMLResponse(html)
+
+    @staticmethod
+    def _get_openapi_url(app: FastAPI, root_path: str) -> str:
+        return f"{root_path.rstrip('/')}{app.openapi_url or APIDocsUtil._OPENAPI_URL}"
 
     @classmethod
     def _register_docs_routes(
