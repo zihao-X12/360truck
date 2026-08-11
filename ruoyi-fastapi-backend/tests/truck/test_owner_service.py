@@ -4,12 +4,29 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 from exceptions.exception import ServiceException
+from common.vo import PageModel
 from module_truck.dao.owner_dao import TruckOwnerDao
 from module_truck.entity.vo.owner_vo import DeleteTruckOwnerModel, TruckOwnerModel
 from module_truck.service.owner_service import TruckOwnerService
 
 
 class TruckOwnerServiceTests(unittest.IsolatedAsyncioTestCase):
+    async def test_owner_list_includes_vehicle_counts(self) -> None:
+        page = PageModel(rows=[{'ownerId': 1}, {'ownerId': 2}], pageNum=1, pageSize=10, total=2, hasNext=False)
+
+        with (
+            patch.object(TruckOwnerDao, 'get_list', new=AsyncMock(return_value=page)),
+            patch.object(
+                TruckOwnerDao, 'count_vehicles_by_owner_ids', new=AsyncMock(return_value={1: 3})
+            ) as count_vehicles,
+        ):
+            result = await TruckOwnerService.get_list(
+                AsyncMock(), AsyncMock(), AsyncMock(), AsyncMock(), True
+            )
+
+        self.assertEqual(result.rows, [{'ownerId': 1, 'vehicleCount': 3}, {'ownerId': 2, 'vehicleCount': 0}])
+        count_vehicles.assert_awaited_once_with(unittest.mock.ANY, [1, 2], unittest.mock.ANY)
+
     async def test_duplicate_identity_is_rejected(self) -> None:
         owner = TruckOwnerModel(ownerId=2, ownerType='enterprise', ownerName='测试企业', deptId=9101, creditCode='91330000TEST')
         existing = SimpleNamespace(owner_id=1)

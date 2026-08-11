@@ -1,5 +1,11 @@
 <template>
   <div class="app-container">
+    <div v-if="ownerContext.ownerId" class="owner-context">
+      <el-button link icon="ArrowLeft" @click="returnToOwners">返回主体管理</el-button>
+      <el-divider direction="vertical" />
+      <span class="owner-context__label">{{ ownerContext.ownerName || '主体' }}名下车辆</span>
+      <el-tag type="info" effect="plain">{{ total }} 辆</el-tag>
+    </div>
     <el-form ref="queryRef" :inline="true" :model="queryParams" v-show="showSearch">
       <el-form-item label="车牌号" prop="plateNo">
         <el-input v-model="queryParams.plateNo" clearable placeholder="请输入车牌号" @keyup.enter="handleQuery" />
@@ -83,8 +89,9 @@
 </template>
 
 <script setup name="TruckVehicle">
+import { getOwner } from '@/api/truck/owner'
 import { delVehicle, importVehicle, listVehicle } from '@/api/truck/vehicle'
-import { listDept } from '@/api/system/dept'
+import { listTruckDeptOptions } from '@/api/truck/dept'
 import download from '@/plugins/download'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -99,10 +106,15 @@ const total = ref(0)
 const deptOptions = ref([])
 const deptList = ref([])
 const deptProps = { value: 'deptId', label: 'deptName', children: 'children' }
+const ownerContext = reactive({
+  ownerId: route.query.ownerId ? Number(route.query.ownerId) : undefined,
+  ownerName: route.query.ownerName ? String(route.query.ownerName) : ''
+})
 const queryParams = reactive({
   pageNum: 1,
   pageSize: 10,
   plateNo: undefined,
+  ownerId: ownerContext.ownerId,
   deptId: route.query.deptId ? Number(route.query.deptId) : undefined,
   vehicleStatus: undefined,
   sourceType: route.query.sourceType || undefined,
@@ -120,9 +132,11 @@ function getList() {
 }
 function handleQuery() { queryParams.pageNum = 1; getList() }
 function resetQuery() { proxy.resetForm('queryRef'); handleQuery() }
-function handleAdd() { router.push('/truck/vehicle-detail') }
-function handleEdit(row) { router.push(`/truck/vehicle-detail/${row.vehicleId}`) }
-function openDetail(row) { router.push(`/truck/vehicle-detail/${row.vehicleId}?readonly=1`) }
+function contextQuery(extra = {}) { return ownerContext.ownerId ? { ...extra, ownerId: ownerContext.ownerId, ownerName: ownerContext.ownerName } : extra }
+function handleAdd() { router.push({ path: '/truck/vehicle-detail', query: contextQuery() }) }
+function handleEdit(row) { router.push({ path: `/truck/vehicle-detail/${row.vehicleId}`, query: contextQuery() }) }
+function openDetail(row) { router.push({ path: `/truck/vehicle-detail/${row.vehicleId}`, query: contextQuery({ readonly: '1' }) }) }
+function returnToOwners() { router.push('/truck/owner') }
 function handleDelete(row) {
   proxy.$modal.confirm(`是否删除车辆“${row.plateNo}”？`)
     .then(() => delVehicle(row.vehicleId))
@@ -167,14 +181,19 @@ async function submitImport() {
   }
 }
 
-listDept().then(response => {
+listTruckDeptOptions().then(response => {
   deptList.value = response.data
   deptOptions.value = proxy.handleTree(response.data, 'deptId')
 })
+if (ownerContext.ownerId && !ownerContext.ownerName) {
+  getOwner(ownerContext.ownerId).then(response => { ownerContext.ownerName = response.data.ownerName })
+}
 getList()
 </script>
 
 <style scoped>
+.owner-context { display: flex; align-items: center; gap: 10px; min-height: 40px; margin-bottom: 14px; border-bottom: 1px solid var(--el-border-color-lighter); }
+.owner-context__label { color: var(--el-text-color-primary); font-size: 15px; font-weight: 600; }
 .import-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; color: #52606d; font-size: 14px; }
 .import-result { margin-top: 16px; }
 </style>

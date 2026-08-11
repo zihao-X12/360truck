@@ -17,7 +17,7 @@ from common.vo import DataResponseModel, PageResponseModel, ResponseBaseModel
 from module_admin.entity.do.dept_do import SysDept
 from module_admin.entity.vo.user_vo import CurrentUserModel
 from module_admin.service.dept_service import DeptService
-from module_truck.entity.do.truck_do import TruckOwner
+from module_truck.entity.do.truck_do import TruckOwner, TruckVehicle
 from module_truck.entity.vo.owner_vo import DeleteTruckOwnerModel, TruckOwnerModel, TruckOwnerPageQueryModel
 from module_truck.service.owner_service import TruckOwnerService
 from utils.response_util import ResponseUtil
@@ -26,13 +26,13 @@ owner_controller = APIRouterPro(prefix='/truck/owner', order_num=30, tags=['å¤§è
 
 
 @owner_controller.get('/list', response_model=PageResponseModel[TruckOwnerModel], dependencies=[UserInterfaceAuthDependency('truck:owner:query')])
-async def get_owner_list(request: Request, query: Annotated[TruckOwnerPageQueryModel, Query()], db: Annotated[AsyncSession, DBSessionDependency()], scope: Annotated[ColumnElement, DataScopeDependency(TruckOwner)]) -> Response:
-    return ResponseUtil.success(model_content=await TruckOwnerService.get_list(db, query, scope, True))
+async def get_owner_list(request: Request, query: Annotated[TruckOwnerPageQueryModel, Query()], db: Annotated[AsyncSession, DBSessionDependency()], owner_scope: Annotated[ColumnElement, DataScopeDependency(TruckOwner)], vehicle_scope: Annotated[ColumnElement, DataScopeDependency(TruckVehicle)]) -> Response:
+    return ResponseUtil.success(model_content=await TruckOwnerService.get_list(db, query, owner_scope, vehicle_scope, True))
 
 
 @owner_controller.get('/{owner_id}', response_model=DataResponseModel[TruckOwnerModel], dependencies=[UserInterfaceAuthDependency('truck:owner:query')])
-async def get_owner_detail(request: Request, owner_id: Annotated[int, Path()], db: Annotated[AsyncSession, DBSessionDependency()], scope: Annotated[ColumnElement, DataScopeDependency(TruckOwner)]) -> Response:
-    return ResponseUtil.success(data=await TruckOwnerService.detail(db, owner_id, scope))
+async def get_owner_detail(request: Request, owner_id: Annotated[int, Path()], db: Annotated[AsyncSession, DBSessionDependency()], owner_scope: Annotated[ColumnElement, DataScopeDependency(TruckOwner)], vehicle_scope: Annotated[ColumnElement, DataScopeDependency(TruckVehicle)]) -> Response:
+    return ResponseUtil.success(data=await TruckOwnerService.detail(db, owner_id, owner_scope, vehicle_scope))
 
 
 @owner_controller.post('', response_model=ResponseBaseModel, dependencies=[UserInterfaceAuthDependency('truck:owner:add')])

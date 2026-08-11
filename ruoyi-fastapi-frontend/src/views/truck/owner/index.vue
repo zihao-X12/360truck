@@ -29,9 +29,15 @@
       <el-table-column label="所属中队" min-width="130"><template #default="scope">{{ getDeptName(scope.row.deptId) }}</template></el-table-column>
       <el-table-column label="联系人" min-width="110" prop="contactName" />
       <el-table-column label="联系电话" min-width="130" prop="contactPhone" />
-      <el-table-column label="状态" width="90"><template #default="scope"><dict-tag :options="sys_normal_disable" :value="scope.row.status" /></template></el-table-column>
-      <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="150">
+      <el-table-column label="名下车辆" width="105" align="center">
         <template #default="scope">
+          <el-button link type="primary" icon="Van" @click="handleVehicles(scope.row)">{{ scope.row.vehicleCount || 0 }} 辆</el-button>
+        </template>
+      </el-table-column>
+      <el-table-column label="状态" width="90"><template #default="scope"><dict-tag :options="sys_normal_disable" :value="scope.row.status" /></template></el-table-column>
+      <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="235">
+        <template #default="scope">
+          <el-button link type="primary" icon="View" @click="handleVehicles(scope.row)">查看车辆</el-button>
           <el-button v-hasPermi="['truck:owner:edit']" link type="primary" icon="Edit" @click="handleUpdate(scope.row)">修改</el-button>
           <el-button v-hasPermi="['truck:owner:remove']" link type="danger" icon="Delete" @click="handleDelete(scope.row)">删除</el-button>
         </template>
@@ -60,9 +66,13 @@
 
 <script setup name="TruckOwner">
 import { addOwner, delOwner, getOwner, listOwner, updateOwner } from '@/api/truck/owner'
-import { listDept } from '@/api/system/dept'
+import { listTruckDeptOptions } from '@/api/truck/dept'
+import useUserStore from '@/store/modules/user'
+import { useRouter } from 'vue-router'
 
 const { proxy } = getCurrentInstance()
+const router = useRouter()
+const userStore = useUserStore()
 const { truck_owner_type, sys_normal_disable } = proxy.useDict('truck_owner_type', 'sys_normal_disable')
 const loading = ref(false)
 const showSearch = ref(true)
@@ -77,15 +87,16 @@ const queryParams = reactive({ pageNum: 1, pageSize: 10, ownerName: undefined, o
 const form = ref({})
 const rules = { ownerType: [{ required: true, message: '请选择主体类型', trigger: 'change' }], ownerName: [{ required: true, message: '请输入主体名称', trigger: 'blur' }], deptId: [{ required: true, message: '请选择所属中队', trigger: 'change' }] }
 
-function getDeptOptions() { listDept().then(response => { deptList.value = response.data; deptOptions.value = proxy.handleTree(response.data, 'deptId') }) }
+function getDeptOptions() { listTruckDeptOptions().then(response => { deptList.value = response.data; deptOptions.value = proxy.handleTree(response.data, 'deptId') }) }
 function getDeptName(deptId) { return deptList.value.find(item => item.deptId === deptId)?.deptName || '-' }
 function getList() { loading.value = true; listOwner(queryParams).then(response => { ownerList.value = response.rows; total.value = response.total }).finally(() => { loading.value = false }) }
-function reset() { form.value = { ownerId: undefined, ownerType: 'enterprise', ownerName: undefined, creditCode: undefined, idCardNo: undefined, deptId: undefined, contactName: undefined, contactPhone: undefined, address: undefined, status: '0', remark: undefined }; proxy.resetForm('ownerRef') }
+function reset() { form.value = { ownerId: undefined, ownerType: 'enterprise', ownerName: undefined, creditCode: undefined, idCardNo: undefined, deptId: userStore.deptId, contactName: undefined, contactPhone: undefined, address: undefined, status: '0', remark: undefined }; proxy.resetForm('ownerRef') }
 function cancel() { open.value = false; reset() }
 function handleQuery() { queryParams.pageNum = 1; getList() }
 function resetQuery() { proxy.resetForm('queryRef'); handleQuery() }
 function handleAdd() { reset(); open.value = true; title.value = '新增主体' }
 function handleUpdate(row) { reset(); getOwner(row.ownerId).then(response => { form.value = response.data; open.value = true; title.value = '修改主体' }) }
+function handleVehicles(row) { router.push({ path: '/truck/vehicle', query: { ownerId: row.ownerId, ownerName: row.ownerName } }) }
 function handleDelete(row) { proxy.$modal.confirm(`是否删除主体“${row.ownerName}”？`).then(() => delOwner(row.ownerId)).then(() => { proxy.$modal.msgSuccess('删除成功'); getList() }).catch(() => {}) }
 function submitForm() { proxy.$refs.ownerRef.validate(valid => { if (!valid) return; const request = form.value.ownerId ? updateOwner(form.value) : addOwner(form.value); request.then(() => { proxy.$modal.msgSuccess(form.value.ownerId ? '修改成功' : '新增成功'); open.value = false; getList() }) }) }
 

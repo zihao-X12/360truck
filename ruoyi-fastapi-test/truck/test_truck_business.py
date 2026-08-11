@@ -11,9 +11,9 @@ SQUAD_COUNT = 6
 DEVICE_TYPE_COUNT = 2
 
 
-async def authenticated_context(browser: Browser) -> BrowserContext:
-    token = LoginHelper().login(username='admin', password='admin123')
-    assert token, '管理员登录失败'
+async def authenticated_context(browser: Browser, username: str = 'admin') -> BrowserContext:
+    token = LoginHelper().login(username=username, password='admin123')
+    assert token, f'{username} 登录失败'
     context = await browser.new_context(viewport={'width': 1440, 'height': 900})
     host = urlparse(Config.frontend_url).hostname
     await context.add_cookies(
@@ -69,6 +69,25 @@ async def test_vehicle_archive_menu_renders_list_page() -> None:
         await page.get_by_role('button', name='取消').click()
         await page.wait_for_url('**/truck/vehicle')
         await page.get_by_placeholder('请输入车牌号').wait_for()
+
+        await context.close()
+        await browser.close()
+
+
+@pytest.mark.asyncio
+async def test_squad_admin_has_owner_and_vehicle_operations() -> None:
+    async with async_playwright() as playwright:
+        browser = await playwright.chromium.launch(headless=True)
+        context = await authenticated_context(browser, username='xiping_admin')
+        page = await context.new_page()
+
+        await page.goto(f'{Config.frontend_url}/truck/owner')
+        await page.get_by_role('button', name='新增主体').wait_for()
+
+        await page.goto(f'{Config.frontend_url}/truck/vehicle')
+        await page.get_by_role('button', name='新增车辆').wait_for()
+        await page.get_by_role('button', name='批量导入').wait_for()
+        await page.get_by_role('button', name='导出').wait_for()
 
         await context.close()
         await browser.close()

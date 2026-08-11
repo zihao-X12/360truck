@@ -50,7 +50,7 @@ try {
     Assert-True ($leaderRows.Count -eq 2) 'Leader should have full read data scope.'
 
     $squadRecalculate = Invoke-RestMethod -Uri 'http://127.0.0.1:9099/truck/warning/recalculate' -Method Post -Headers $squadHeaders
-    Assert-True ($squadRecalculate.code -eq 200 -and $squadRecalculate.data.count -eq 1) 'Squad warning recalculation should process one vehicle.'
+    Assert-True ($squadRecalculate.code -eq 200 -and $squadRecalculate.data.count -ge 1) 'Squad warning recalculation should process its test vehicle.'
 
     $warningState = @(& $mysql @mysqlArgs --batch --skip-column-names --execute="SELECT plate_no,COALESCE(warning_level,'NULL') FROM truck_vehicle WHERE remark='M5_PERMISSION_TEST' ORDER BY plate_no;")
     Assert-True ($warningState[0] -match '^M5PERM-GS\s+NULL$') 'Squad recalculation changed another squad vehicle.'

@@ -26,24 +26,28 @@
 <script setup name="TruckVehicleDetail">
 import { getOwner, listOwner } from '@/api/truck/owner'
 import { addVehicle, getVehicle, updateVehicle } from '@/api/truck/vehicle'
-import { listDept } from '@/api/system/dept'
+import { listTruckDeptOptions } from '@/api/truck/dept'
+import useUserStore from '@/store/modules/user'
 import { useRoute, useRouter } from 'vue-router'
 
 const route = useRoute(); const router = useRouter(); const { proxy } = getCurrentInstance()
+const userStore = useUserStore()
 const { truck_vehicle_type, truck_plate_color, truck_vehicle_status, truck_source_type, truck_device_type } = proxy.useDict('truck_vehicle_type', 'truck_plate_color', 'truck_vehicle_status', 'truck_source_type', 'truck_device_type')
 const readonly = computed(() => route.query.readonly === '1'); const deptOptions = ref([]); const ownerOptions = ref([]); const ownerLoading = ref(false); const photoFiles = ref([])
+const contextOwnerId = computed(() => route.query.ownerId ? Number(route.query.ownerId) : undefined)
 const deptProps = { value: 'deptId', label: 'deptName', children: 'children' }
 const form = ref({}); const rules = { plateNo: [{ required: true, message: '请输入车牌号', trigger: 'blur' }], plateColor: [{ required: true, message: '请选择车牌颜色', trigger: 'change' }], deptId: [{ required: true, message: '请选择所属中队', trigger: 'change' }] }
-function reset() { form.value = { vehicleId: undefined, plateNo: undefined, plateColor: 'yellow', deptId: undefined, vehicleType: undefined, vehicleBrand: undefined, vin: undefined, sourceType: undefined, ownerId: undefined, motorOwnerName: undefined, insuranceStatus: undefined, insuranceInfo: undefined, driverName: undefined, driverPhone: undefined, affiliatedCompany: undefined, vehicleStatus: 'normal', supervisionFlag: '0', devices: [], remark: undefined, changeReason: undefined }; photoFiles.value = [] }
+function reset() { form.value = { vehicleId: undefined, plateNo: undefined, plateColor: 'yellow', deptId: userStore.deptId, vehicleType: undefined, vehicleBrand: undefined, vin: undefined, sourceType: undefined, ownerId: undefined, motorOwnerName: undefined, insuranceStatus: undefined, insuranceInfo: undefined, driverName: undefined, driverPhone: undefined, affiliatedCompany: undefined, vehicleStatus: 'normal', supervisionFlag: '0', devices: [], remark: undefined, changeReason: undefined }; photoFiles.value = [] }
 function addDevice() { form.value.devices.push({ deviceType: undefined, productName: undefined, brand: undefined, installDate: undefined, status: '0' }) }
 function removeDevice(index) { form.value.devices.splice(index, 1) }
 function searchOwners(keyword) { ownerLoading.value = true; listOwner({ pageNum: 1, pageSize: 50, ownerName: keyword, deptId: form.value.deptId }).then(response => { ownerOptions.value = response.rows }).finally(() => { ownerLoading.value = false }) }
 function handleOwnerChange(ownerId) { const owner = ownerOptions.value.find(item => item.ownerId === ownerId); if (owner) { form.value.ownerType = owner.ownerType; form.value.motorOwnerName = form.value.motorOwnerName || owner.ownerName } }
 function handleDeptChange() { if (form.value.ownerId) { form.value.ownerId = undefined; form.value.ownerType = undefined } }
-function goBack() { router.push('/truck/vehicle') }
+function goBack() { router.push({ path: '/truck/vehicle', query: contextOwnerId.value ? { ownerId: contextOwnerId.value, ownerName: route.query.ownerName } : {} }) }
 function submitForm() { proxy.$refs.vehicleRef.validate(valid => { if (!valid) return; const payload = { ...form.value, photoFileId: photoFiles.value[0]?.fileId || form.value.photoFileId || null }; const request = payload.vehicleId ? updateVehicle(payload) : addVehicle(payload); request.then(() => { proxy.$modal.msgSuccess(payload.vehicleId ? '修改成功' : '新增成功'); goBack() }) }) }
 function loadDetail() { const vehicleId = route.params.vehicleId; if (!vehicleId) return; getVehicle(vehicleId).then(response => { form.value = response.data; if (form.value.ownerId) getOwner(form.value.ownerId).then(ownerResponse => { ownerOptions.value = [ownerResponse.data] }); if (form.value.photoFileId) photoFiles.value = [{ fileId: form.value.photoFileId, name: '车辆照片', url: `/common/files/${form.value.photoFileId}/download/车辆照片` }] }) }
-listDept().then(response => { deptOptions.value = proxy.handleTree(response.data, 'deptId') }); reset(); loadDetail()
+function loadContextOwner() { if (!contextOwnerId.value || route.params.vehicleId) return; getOwner(contextOwnerId.value).then(response => { const owner = response.data; ownerOptions.value = [owner]; form.value.ownerId = owner.ownerId; form.value.ownerType = owner.ownerType; form.value.motorOwnerName = owner.ownerName; form.value.deptId = owner.deptId }) }
+listTruckDeptOptions().then(response => { deptOptions.value = proxy.handleTree(response.data, 'deptId') }); reset(); loadDetail(); loadContextOwner()
 </script>
 
 <style scoped>

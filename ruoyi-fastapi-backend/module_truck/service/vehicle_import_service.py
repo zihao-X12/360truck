@@ -19,6 +19,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from exceptions.exception import ServiceException
 from module_admin.entity.do.dept_do import SysDept
 from module_admin.entity.do.dict_do import SysDictData
+from module_truck.dao.owner_dao import TruckOwnerDao
+from module_truck.entity.vo.owner_vo import TruckOwnerModel
 from module_truck.entity.vo.vehicle_vo import TruckVehicleDeviceModel, TruckVehicleModel
 from module_truck.service.vehicle_service import TruckVehicleService
 from utils.excel_util import ExcelUtil
@@ -46,6 +48,58 @@ class TruckVehicleImportService:
             return None
         result = str(value).strip()
         return result if result else None
+
+    @classmethod
+    def _normalize_owner_name(cls, value: Any) -> str | None:
+        text = cls._text(value)
+        return ' '.join(text.split()) if text else None
+
+    @classmethod
+    def _owner_identity(cls, vehicle: TruckVehicleModel) -> tuple[str, str] | None:
+        owner_name = cls._normalize_owner_name(vehicle.motor_owner_name)
+        if owner_name:
+            return 'individual', owner_name
+        company_name = cls._normalize_owner_name(vehicle.affiliated_company)
+        if company_name:
+            return 'enterprise', company_name
+        return None
+
+    @classmethod
+    async def _resolve_or_create_owner(
+        cls,
+        db: AsyncSession,
+        vehicle: TruckVehicleModel,
+        owner_phone: str | None,
+        user_name: str,
+        owner_cache: dict[tuple[str, str], int],
+    ) -> tuple[tuple[str, str], int] | None:
+        identity = cls._owner_identity(vehicle)
+        if not identity:
+            return None
+        owner_type, owner_name = identity
+        cache_key = (owner_type, owner_name.casefold())
+        owner_id = owner_cache.get(cache_key)
+        if owner_id is None:
+            owner = await TruckOwnerDao.get_by_name(db, owner_type, owner_name)
+            if owner is None:
+                now = datetime.now()
+                owner = await TruckOwnerDao.add(
+                    db,
+                    TruckOwnerModel(
+                        ownerType=owner_type,
+                        ownerName=owner_name,
+                        deptId=vehicle.dept_id,
+                        contactPhone=owner_phone if owner_type == 'individual' else None,
+                        createBy=user_name,
+                        updateBy=user_name,
+                        createTime=now,
+                        updateTime=now,
+                    ),
+                )
+            owner_id = owner.owner_id
+        vehicle.owner_id = owner_id
+        vehicle.owner_type = owner_type
+        return cache_key, owner_id
 
     @classmethod
     def _header_indexes(cls, headers: list[str | None]) -> dict[str, int]:
@@ -230,6 +284,7 @@ class TruckVehicleImportService:
         user_name: str,
         seen_plates: set[tuple[str, str]],
         seen_vins: set[str],
+        owner_cache: dict[tuple[str, str], int],
     ) -> str | None:
         try:
             vehicle = cls.build_vehicle(row['values'], departments, vehicle_types, plate_colors, user_name)
@@ -238,7 +293,17 @@ class TruckVehicleImportService:
                 raise ValueError(f'文件内车牌号{vehicle.plate_no}和车牌颜色重复')
             if vehicle.vin and vehicle.vin in seen_vins:
                 raise ValueError(f'文件内车架号{vehicle.vin}重复')
+            resolved_owner = await cls._resolve_or_create_owner(
+                db,
+                vehicle,
+                cls._text(row['values'].get('owner_phone')),
+                user_name,
+                owner_cache,
+            )
             await TruckVehicleService.add(db, vehicle)
+            if resolved_owner:
+                cache_key, owner_id = resolved_owner
+                owner_cache[cache_key] = owner_id
             seen_plates.add(plate_key)
             if vehicle.vin:
                 seen_vins.add(vehicle.vin)
@@ -269,10 +334,11 @@ class TruckVehicleImportService:
         errors: list[tuple[dict[str, Any], str]] = []
         seen_plates: set[tuple[str, str]] = set()
         seen_vins: set[str] = set()
+        owner_cache: dict[tuple[str, str], int] = {}
         success_count = 0
         for row in rows:
             error = await cls._import_row(
-                db, row, departments, vehicle_types, plate_colors, user_name, seen_plates, seen_vins
+                db, row, departments, vehicle_types, plate_colors, user_name, seen_plates, seen_vins, owner_cache
             )
             if error:
                 errors.append((row, error))

@@ -52,8 +52,6 @@ class TruckVehicleService:
         owner = await TruckOwnerDao.get_by_id(db, vehicle.owner_id)
         if not owner:
             raise ServiceException(message='关联归属主体不存在')
-        if owner.dept_id != vehicle.dept_id:
-            raise ServiceException(message='车辆所属中队必须与归属主体所属中队一致')
         vehicle.owner_type = owner.owner_type
 
     @classmethod

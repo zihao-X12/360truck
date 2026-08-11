@@ -11,6 +11,7 @@ const useUserStore = defineStore(
     state: () => ({
       token: getToken(),
       id: '',
+      deptId: undefined,
       name: '',
       nickName: '',
       avatar: '',
@@ -26,6 +27,9 @@ const useUserStore = defineStore(
         const uuid = userInfo.uuid
         return new Promise((resolve, reject) => {
           login(username, password, code, uuid).then(res => {
+            // Force the route guard to reload permissions when switching accounts.
+            this.roles = []
+            this.permissions = []
             setToken(res.token)
             this.token = res.token
             resolve()
@@ -50,6 +54,7 @@ const useUserStore = defineStore(
               this.roles = ['ROLE_DEFAULT']
             }
             this.id = user.userId
+            this.deptId = user.deptId
             this.name = user.userName
             this.nickName = user.nickName
             this.avatar = avatar
@@ -76,6 +81,7 @@ const useUserStore = defineStore(
         return new Promise((resolve, reject) => {
           logout(this.token).then(() => {
             this.token = ''
+            this.deptId = undefined
             this.roles = []
             this.permissions = []
             removeToken()

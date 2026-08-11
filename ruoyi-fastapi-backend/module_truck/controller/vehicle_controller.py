@@ -18,6 +18,7 @@ from common.router import APIRouterPro
 from common.vo import DataResponseModel, PageResponseModel, ResponseBaseModel
 from exceptions.exception import ServiceException
 from module_admin.entity.do.dept_do import SysDept
+from module_admin.entity.vo.dept_vo import DeptModel
 from module_admin.entity.vo.user_vo import CurrentUserModel
 from module_admin.service.dept_service import DeptService
 from module_truck.dao.vehicle_dao import TruckVehicleDao
@@ -25,10 +26,34 @@ from module_truck.entity.do.truck_do import TruckVehicle
 from module_truck.entity.vo.vehicle_vo import DeleteTruckVehicleModel, TruckVehicleModel, TruckVehiclePageQueryModel
 from module_truck.service.vehicle_import_service import TruckVehicleImportService
 from module_truck.service.vehicle_service import TruckVehicleService
-from utils.common_util import bytes2file_response
+from utils.common_util import CamelCaseUtil, bytes2file_response
 from utils.response_util import ResponseUtil
 
 vehicle_controller = APIRouterPro(prefix='/truck/vehicle', order_num=31, tags=['大货车管理-车辆档案'], dependencies=[PreAuthDependency()])
+
+TRUCK_BRIGADE_DEPT_ID = 9100
+
+
+@vehicle_controller.get('/dept-options', response_model=DataResponseModel[list[DeptModel]], dependencies=[UserInterfaceAuthDependency(['truck:owner:query', 'truck:vehicle:query'])])
+async def get_truck_dept_options(
+    request: Request,
+    db: Annotated[AsyncSession, DBSessionDependency()],
+    scope: Annotated[ColumnElement, DataScopeDependency(SysDept)],
+) -> Response:
+    """Return only the truck squads available within the current user's data scope."""
+    departments = (
+        await db.execute(
+            select(SysDept)
+            .where(
+                SysDept.parent_id == TRUCK_BRIGADE_DEPT_ID,
+                SysDept.status == '0',
+                SysDept.del_flag == '0',
+                scope,
+            )
+            .order_by(SysDept.order_num)
+        )
+    ).scalars().all()
+    return ResponseUtil.success(data=CamelCaseUtil.transform_result(departments))
 
 
 @vehicle_controller.get('/list', response_model=PageResponseModel[TruckVehicleModel], dependencies=[UserInterfaceAuthDependency('truck:vehicle:query')])
@@ -102,7 +127,7 @@ async def export_vehicles(
     )
 
 
-@vehicle_controller.get('/{vehicle_id}', response_model=DataResponseModel[TruckVehicleModel], dependencies=[UserInterfaceAuthDependency('truck:vehicle:query')])
+@vehicle_controller.get('/{vehicle_id:int}', response_model=DataResponseModel[TruckVehicleModel], dependencies=[UserInterfaceAuthDependency('truck:vehicle:query')])
 async def get_vehicle_detail(request: Request, vehicle_id: Annotated[int, Path()], db: Annotated[AsyncSession, DBSessionDependency()], scope: Annotated[ColumnElement, DataScopeDependency(TruckVehicle)]) -> Response:
     return ResponseUtil.success(data=await TruckVehicleService.detail(db, vehicle_id, scope))
 

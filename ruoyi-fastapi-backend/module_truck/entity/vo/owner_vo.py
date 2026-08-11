@@ -24,6 +24,7 @@ class TruckOwnerModel(BaseModel):
     create_time: datetime | None = None
     update_by: str | None = None
     update_time: datetime | None = None
+    vehicle_count: int = 0
 
     @NotBlank(field_name='owner_type', message='主体类型不能为空')
     def get_owner_type(self) -> str | None:

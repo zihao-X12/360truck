@@ -13,13 +13,30 @@ from module_truck.entity.vo.owner_vo import DeleteTruckOwnerModel, TruckOwnerMod
 class TruckOwnerService:
     @classmethod
     async def get_list(
-        cls, db: AsyncSession, query: TruckOwnerPageQueryModel, scope: ColumnElement, is_page: bool
+        cls,
+        db: AsyncSession,
+        query: TruckOwnerPageQueryModel,
+        owner_scope: ColumnElement,
+        vehicle_scope: ColumnElement,
+        is_page: bool,
     ) -> Any:
-        return await TruckOwnerDao.get_list(db, query, scope, is_page)
+        result = await TruckOwnerDao.get_list(db, query, owner_scope, vehicle_scope, is_page)
+        rows = result.rows if hasattr(result, 'rows') else result
+        owner_ids = [row['ownerId'] for row in rows]
+        vehicle_counts = await TruckOwnerDao.count_vehicles_by_owner_ids(db, owner_ids, vehicle_scope)
+        for row in rows:
+            row['vehicleCount'] = vehicle_counts.get(row['ownerId'], 0)
+        return result
 
     @classmethod
-    async def detail(cls, db: AsyncSession, owner_id: int, scope: ColumnElement | None = None) -> TruckOwnerModel:
-        owner = await TruckOwnerDao.get_by_id(db, owner_id, scope)
+    async def detail(
+        cls,
+        db: AsyncSession,
+        owner_id: int,
+        owner_scope: ColumnElement | None = None,
+        vehicle_scope: ColumnElement | None = None,
+    ) -> TruckOwnerModel:
+        owner = await TruckOwnerDao.get_by_id(db, owner_id, owner_scope, vehicle_scope)
         if not owner:
             raise ServiceException(message='归属主体不存在或无权访问')
         return TruckOwnerModel.model_validate(owner)
