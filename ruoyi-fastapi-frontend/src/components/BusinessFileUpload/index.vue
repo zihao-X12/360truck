@@ -33,6 +33,16 @@
         :key="file.fileId"
         class="el-upload-list__item business-file-item"
       >
+        <el-image
+          v-if="showThumbnail"
+          class="business-file-thumbnail"
+          :src="thumbnailUrl(file)"
+          :preview-src-list="thumbnailUrl(file) ? [thumbnailUrl(file)] : []"
+          :preview-teleported="true"
+          fit="cover"
+        >
+          <template #error><div class="business-file-thumbnail-error">图片</div></template>
+        </el-image>
         <div class="business-file-main">
           <span class="business-file-name" :title="file.name">{{
             file.name
@@ -151,6 +161,11 @@ const props = defineProps({
     type: Boolean,
     default: true,
   },
+  // 是否以图片缩略图展示图片文件
+  showThumbnail: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 const emit = defineEmits(["update:modelValue", "change"]);
@@ -159,6 +174,7 @@ const fileUploadRef = ref();
 const uploadFileListRef = ref();
 const fileList = ref([]);
 const pendingFileList = ref([]);
+const thumbnailUrls = reactive(new Map());
 let sortable;
 
 const showTip = computed(
@@ -169,6 +185,7 @@ watch(
   () => props.modelValue,
   (value) => {
     fileList.value = normalizeFileList(value);
+    syncThumbnailUrls(fileList.value);
     nextTick(initSortable);
   },
   { deep: true, immediate: true }
@@ -482,6 +499,35 @@ function getFileExtension(filename) {
   return index > -1 ? filename.slice(index + 1).toLowerCase() : "";
 }
 
+function isImageFile(filename) {
+  return ["jpg", "jpeg", "png", "gif", "webp", "bmp"].includes(
+    getFileExtension(filename)
+  );
+}
+
+function thumbnailUrl(file) {
+  return thumbnailUrls.get(file.fileId) || "";
+}
+
+async function syncThumbnailUrls(files) {
+  const previewFiles = props.showThumbnail ? files : [];
+  const validIds = new Set(previewFiles.map((file) => file.fileId));
+  for (const [fileId, url] of thumbnailUrls) {
+    if (!validIds.has(fileId)) {
+      URL.revokeObjectURL(url);
+      thumbnailUrls.delete(fileId);
+    }
+  }
+  await Promise.all(previewFiles.filter((file) => !thumbnailUrls.has(file.fileId)).map(async (file) => {
+    try {
+      const blob = await request({ url: file.url, method: "get", responseType: "blob" });
+      if (blob instanceof Blob) thumbnailUrls.set(file.fileId, URL.createObjectURL(blob));
+    } catch (error) {
+      console.warn("车辆照片缩略图加载失败", error);
+    }
+  }));
+}
+
 /**
  * 从路径获取文件名称。
  *
@@ -507,6 +553,8 @@ onMounted(() => nextTick(initSortable));
 
 onBeforeUnmount(() => {
   sortable?.destroy();
+  for (const url of thumbnailUrls.values()) URL.revokeObjectURL(url);
+  thumbnailUrls.clear();
 });
 
 defineExpose({ getFileIds });
@@ -542,6 +590,27 @@ defineExpose({ getFileIds });
   min-width: 0;
   align-items: center;
   gap: 8px;
+}
+
+.business-file-thumbnail {
+  width: 48px;
+  height: 48px;
+  flex: 0 0 48px;
+  margin-right: 10px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 4px;
+  cursor: zoom-in;
+}
+
+.business-file-thumbnail-error {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  background: var(--el-fill-color-light);
 }
 
 .business-file-name {
