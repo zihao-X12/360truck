@@ -261,8 +261,8 @@ ruoyi-fastapi-frontend/src/
 | rule_id | bigint | 主键 |
 | rule_name | varchar(100) | 规则名称 |
 | required_device_types | json/text | 应安装设备类型列表 |
-| level_one_threshold | int | 一级预警阈值 |
-| level_two_threshold | int | 二级预警阈值 |
+| level_one_threshold | int | 一级预警阈值（默认 2 = 缺装全部应装设备） |
+| level_two_threshold | int | 二级预警阈值（默认 2，与一级相同表示只保留一级预警） |
 | status | char(1) | 状态 |
 | create_by/create_time/update_by/update_time | - | 审计字段 |
 
@@ -343,6 +343,27 @@ MVP 可先不做复杂规则界面，先基于字典中的安全设备类型和�
 | GET | `/truck/warning/list` | 预警车辆列表 |
 | POST | `/truck/warning/recalculate` | 手动重算预警 |
 | POST | `/truck/warning/export` | 预警导出 |
+| GET | `/truck/vehicle/dept-options` | 分管中队选项树（含大队父节点，前端递归剔除大队） |
+
+### 5.4 GA/T1400 对接（M9-M12 新增）
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | `/gat1400/connect/status` | 对接状态查询 |
+| POST | `/gat1400/connect/register` | 手动注册 |
+| POST | `/gat1400/connect/keepalive` | 手动保活 |
+| POST | `/gat1400/connect/unregister` | 手动注销 |
+| GET | `/gat1400/config` | 对接配置查询 |
+| PUT | `/gat1400/config` | 对接配置保存（密码加密存储、回显脱敏） |
+| GET | `/gat1400/subscribe/list` | 订阅列表 |
+| POST | `/gat1400/subscribe/create` | 创建订阅 |
+| PUT | `/gat1400/subscribe/cancel/{subscribe_id}` | 取消订阅 |
+| POST | `/VIID/SubscribeNotifications` | 接收大华平台过车记录推送 |
+| GET | `/truck/passrecord/list` | 过车记录查询（按车辆分管中队隔离） |
+| POST | `/truck/passrecord/export` | 过车记录导出 |
+
+> 接口清单已与实现核对（共 29 条 truck / gat1400 路由）。GA/T1400 详细协议与设计见
+> [`gat1400-integration-design.md`](gat1400-integration-design.md)。
 
 ## 6. 开发里程碑
 
@@ -434,7 +455,9 @@ MVP 可先不做复杂规则界面，先基于字典中的安全设备类型和�
 
 1. 已完成看板汇总、中队统计和安全设备覆盖率 API，所有查询统一接入车辆或主体数据权限。
 2. 首页已改为业务看板，支持本地/外地车辆、中队车辆及一级/二级预警下钻。
-3. 已预置“刹车辅助系统 + 360 全景影像”必装规则；缺 2 项为一级预警，缺 1 项为二级预警，设备齐全无预警。
+3. 已预置“刹车辅助系统 + 360 全景影像”必装规则。**当前口径（M14 调整后）**：
+   应安装设备 2 项，缺装 2 项（一项都没装）为一级预警，缺 1 项不预警，设备齐全无预警。
+   阈值机制保留两级能力，恢复分级只需调低 `level_two_threshold`。
 4. 已完成预警重算、分页查询、真实缺失设备展示和按筛选条件导出，并同步 MySQL/PostgreSQL 初始化脚本及当前 MySQL 菜单权限。
 5. 三辆临时车辆端到端验证通过并已清理；Ruff、11 项后端单元测试、Vite 生产构建以及 375px/756px 浏览器布局检查均通过。
 
@@ -461,6 +484,91 @@ MVP 可先不做复杂规则界面，先基于字典中的安全设备类型和�
 4. 三角色真实权限回归通过：管理员和领导可读全量，中队管理员仅访问西屏数据；中队预警重算不会更新其他中队，领导写接口返回 403。
 5. README 已改为本项目交付说明，并新增部署初始化、测试脚本、账号权限、常见问题和验收清单。
 6. Ruff、18 项后端测试、2 项 Playwright E2E、PowerShell 脚本语法检查和 Vite 生产构建均通过；PostgreSQL 已完成脚本兼容同步，尚未连接独立 PostgreSQL 实例执行回归。
+
+### M6：归属与数据范围业务规则定稿（2026-10-15）
+
+系统已运行后经业务确认，`truck_owner.dept_id` 与 `truck_vehicle.dept_id` 的语义需要显式定稿，
+因为多数大货车为挂靠性质，车辆分管与主体登记地天然可以不同。定稿规则如下。
+
+#### 规则 1：车辆分管中队由车辆自身决定
+
+- `truck_vehicle.dept_id` 表示**分管中队**，即这辆车由哪个中队负责管理，取自主管中队的上报录入。
+- 该字段**不由所属主体推导**，主体变更时不级联修改车辆分管中队。
+
+#### 规则 2：主体是车辆的归集维度，允许跨中队
+
+- `truck_owner.dept_id` 表示**主体登记归属中队**，仅用于登记统计与主体列表筛选，**不决定车辆分管**。
+- 一辆挂靠车可以「主体登记在西屏、车辆由古市分管」，这是正常业务形态。
+- 同一主体名下车辆可以分布在多个中队；车辆列表按 `ownerId` 查询时跨中队展示，
+  并返回每辆车的分管中队名称（`deptName`）以便识别。
+
+#### 规则 3：主体档案跨中队可见
+
+- 主体的可见性 = 登记归属本中队 **或** 本中队分管了该主体名下的车辆
+  （`TruckOwnerDao.get_list` 的 `or_(owner_scope, linked_vehicle_visible)`）。
+- 「名下车辆」数量与明细均为该主体**跨中队的全部在管车辆**，不按当前用户车辆权限收窄。
+- 车辆本身的查询、修改、删除、导出仍严格按车辆分管中队隔离，不因规则 3 放宽。
+
+#### 规则 4：看板按中队统计统一口径
+
+- `dept-stat` 中每行的车辆数与企业数/个人数**均按「车辆分管中队」归集**，保证同一行两个数字可对齐。
+- 主体总量卡片仍按 `owner_id` 去重统计，不受中队归集影响。
+
+#### 规则 5：个人车辆不强制建主体
+
+- 个体车可以只填写 `truck_vehicle.motor_owner_name` 完成建档，`owner_id` 允许为空。
+- 需要归集时再补建 `owner_type='individual'` 的主体并关联；批量导入沿用
+  `_resolve_or_create_owner` 的保守策略（字段明确且可识别时才自动创建）。
+
+#### 本次同步的代码与界面
+
+1. `TruckOwnerService.get_list` 的「名下车辆」计数不再传入车辆数据权限。
+2. `TruckVehicleService.get_list` 补充 `deptName`，并将车辆列表列名改为「分管中队」。
+3. **按 `ownerId` 查询车辆时不再拼接车辆数据权限**（由 `TruckVehicleDao.get_list` 判断），
+   使「名下车辆」与明细口径一致；跨中队读取前先校验主体可见性，避免借 `ownerId` 越权。
+4. `TruckDashboardDao.get_dept_owner_counts` 改为按车辆分管中队归集主体。
+5. 主体列表/表单、车辆表单的字段标签明确为「登记归属中队」「分管中队」，并加说明提示。
+6. 新增单元测试 `test_owner_vehicle_count_covers_all_squads`、`tests/truck/test_vehicle_list_scope.py`。
+
+#### 顺带修复的既有缺陷
+
+1. **部门选项树一直不可用**：`/truck/vehicle/dept-options` 原先只返回 6 个中队、不返回它们的父节点
+   「松阳大队」，而前端用 `handleTree` 组装树；父节点缺失时 `handleTree` 返回空数组，
+   导致树形选择器实际没有任何可选中队，选中队后只显示部门 ID。
+   现改为连同大队节点一起返回，并在前端 `filterTruckSquads` 中递归剔除大队节点
+   （大队不承担车辆分管，不可作为选项）。车辆新增页的分管中队默认值改为空，强制显式选择。
+2. **软删占用唯一键**：`truck_owner.credit_code` / `id_card_no`、`truck_vehicle.(plate_no, plate_color)` / `vin`
+   都是不含 `del_flag` 的唯一索引，软删后身份字段仍被占用，重建同一主体或车辆会报
+   `Duplicate entry`。**已在 M13 修复**（见下）。
+3. **PostgreSQL 迁移脚本补齐并真机验证**：原先 `m4`、`m6`、`m7`、`m8` 只有 MySQL 版本，
+   PostgreSQL 升级路径自 m4 起断裂。已补齐 4 份 `.pg.sql`，并修复 `init.pg.sql` 写入
+   PostgreSQL 模板中不存在的 `sys_dept.remark`、`m12.pg.sql` 误用 `ON CONFLICT (config_key)`
+   两处既有错误。在 PostgreSQL 14.24 上完成「基础模板 + `init` + `m4`~`m12`」共 11 个脚本
+   的完整演练，全部成功且二次执行幂等。
+
+### M13：软删释放唯一键（2026-10-15）
+
+**问题**：软删除只置 `del_flag='2'`，保留 `credit_code` / `id_card_no` / `plate_no` / `vin`，
+唯一索引不含 `del_flag`，导致「删掉的东西建不回来」。
+
+**处置**：
+
+1. 软删主体时清空 `credit_code` 与 `id_card_no`（`TruckOwnerDao.delete`）。
+2. 软删车辆时清空 `plate_no` 与 `vin`（`TruckVehicleDao.soft_delete`）。
+3. `truck_vehicle.plate_no` 由 `NOT NULL` 改为可空（已删除的车辆没有有效车牌）。
+4. 新增增量脚本 `sql/truck-platform-m13.mysql.sql` 与 `.pg.sql`，调整列定义并清理历史遗留，
+   可重复执行；已在 MySQL 真机连续执行两次验证幂等。
+
+**设计取舍（与早期建议不同，需注意）**：早期建议「把唯一约束改为包含 `del_flag` 的组合索引」，
+该方案实际**不可行**——`(credit_code, del_flag)` 在 `del_flag='0'` 时仍无法阻止两条
+`del_flag='0'` 的相同信用代码，唯一性保障反而变弱。最终采用**软删时置空身份字段**：
+MySQL 唯一索引允许多个 NULL，身份标识可安全复用，而主体名称、车辆其余档案与操作日志
+仍保留完整审计痕迹。
+
+**验证**：真机实测「创建 → 软删 → 用同一信用代码 / 同一车牌+车架号重建」均成功；
+新增 `tests/truck/test_soft_delete_unique_key.py` 直接断言 UPDATE 的 SET 子句，
+无需数据库即可锁定行为（此前该缺陷无测试覆盖，因为原有测试把 DAO 的 delete 整体 mock 掉了）。
+
 
 ## 7. 测试计划
 

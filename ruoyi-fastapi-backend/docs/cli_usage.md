@@ -608,7 +608,7 @@ ruoyi app config --env=dev --output=json
     "dbType": "mysql",
     "dbHost": "127.0.0.1",
     "dbPort": 3306,
-    "dbDatabase": "ruoyi-fastapi",
+    "dbDatabase": "truck_bank",
     "redisHost": "127.0.0.1",
     "redisPort": 6379,
     "logLevel": "INFO",
