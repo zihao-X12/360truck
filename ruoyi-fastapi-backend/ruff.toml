@@ -49,6 +49,11 @@ ignore = [
     "RUF012", # mutable class attributes should be annotated with typing.ClassVar
 ]
 
+[lint.per-file-ignores]
+# CLI 脚本：函数内导入为刻意设计（避免脚本启动时加载整个应用），
+# 子进程/路径操作为脚本常规用法，magic value 为脚本内明确语义
+"scripts/*.py" = ["PLC0415", "PLR0915", "PLR0913", "PLR2004", "ANN001", "ANN202", "ASYNC220", "ASYNC240", "PERF203"]
+
 [lint.flake8-type-checking]
 runtime-evaluated-base-classes = ["pydantic.BaseModel", "sqlalchemy.orm.DeclarativeBase"]
 

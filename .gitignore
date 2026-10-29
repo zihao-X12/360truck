@@ -155,3 +155,25 @@ cython_debug/
 .opencode/
 .qoder/
 .trae/
+
+# Docker 部署时由 scripts/prepare-docker-init.ps1 生成的数据库初始化副本
+# （源脚本在 ruoyi-fastapi-backend/sql/ 下，避免重复入库）
+deploy/mysql-init/
+deploy/pg-init/
+# Compose 变量文件（含生产密钥，禁止提交）
+.env.deploy
+.env
+!.env.deploy.example
+
+# 构建/发布产物（体积大，禁止入库；GitHub 单文件硬上限 100MB）
+/truck-backend-*.tar
+/truck-backend-*.tar.gz
+/*.tar
+/*.tar.gz
+/*.zip
+/*.sha256
+
+# 运行日志与临时数据
+logs/
+ruoyi-fastapi-backend/logs/
+

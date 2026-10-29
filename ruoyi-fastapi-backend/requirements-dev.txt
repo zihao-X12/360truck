@@ -1,0 +1,5 @@
+# 后端测试依赖（业务单元测试 tests/ 与内置 CLI 测试 tests/cli 均需要）
+# 安装方式：python -m pip install -r requirements.txt -r requirements-dev.txt
+-r requirements.txt
+pytest==9.1.1
+pytest-asyncio==1.4.0
