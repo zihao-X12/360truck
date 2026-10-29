@@ -15,7 +15,15 @@ class TruckVehicleDao:
     async def get_list(
         cls, db: AsyncSession, query: TruckVehiclePageQueryModel, scope: ColumnElement, is_page: bool
     ) -> Any:
-        statement = select(TruckVehicle).where(
+        """
+        车辆分页列表。
+
+        数据权限按车辆分管中队隔离，但按主体（ownerId）查询时例外：
+        主体是挂靠车辆的归集维度，需展示该主体名下全部车辆（跨中队），
+        否则会出现「主体显示名下 4 辆、点进去只有 1 辆」的口径冲突。
+        为避免越权，该例外在服务层通过主体可见性校验（owner_visible）约束。
+        """
+        conditions = [
             TruckVehicle.del_flag == '0',
             TruckVehicle.plate_no.like(f'%{query.plate_no}%') if query.plate_no else True,
             TruckVehicle.dept_id == query.dept_id if query.dept_id else True,
@@ -25,8 +33,10 @@ class TruckVehicleDao:
             TruckVehicle.source_type == query.source_type if query.source_type else True,
             TruckVehicle.supervision_flag == query.supervision_flag if query.supervision_flag else True,
             TruckVehicle.warning_level == query.warning_level if query.warning_level else True,
-            scope,
-        ).order_by(TruckVehicle.vehicle_id.desc())
+        ]
+        if not query.owner_id:
+            conditions.append(scope)
+        statement = select(TruckVehicle).where(*conditions).order_by(TruckVehicle.vehicle_id.desc())
         return await PageUtil.paginate(db, statement, query.page_num, query.page_size, is_page)
 
     @classmethod
@@ -58,12 +68,44 @@ class TruckVehicleDao:
 
     @classmethod
     async def soft_delete(cls, db: AsyncSession, vehicle_id: int, update_by: str, update_time: datetime) -> None:
-        await db.execute(update(TruckVehicle).where(TruckVehicle.vehicle_id == vehicle_id).values(del_flag='2', update_by=update_by, update_time=update_time))
+        """
+        软删除车辆。
+
+        同时清空 `plate_no` 与 `vin`：`(plate_no, plate_color)` 与 `vin` 都是唯一索引
+        （不含 del_flag），若保留软删车辆的车牌与车架号，同一辆车重新建档时会被
+        唯一约束拦下并报 `Duplicate entry`。清空后车牌可复用；车辆档案的其余字段
+        （车型、品牌、归属、设备、照片）与操作日志仍保留完整审计痕迹。
+
+        注：MySQL 唯一索引允许多个 NULL，故置空后不会互相冲突。
+
+        :param db: orm对象
+        :param vehicle_id: 车辆ID
+        :param update_by: 更新者
+        :param update_time: 更新时间
+        :return: None
+        """
+        await db.execute(
+            update(TruckVehicle)
+            .where(TruckVehicle.vehicle_id == vehicle_id)
+            .values(del_flag='2', plate_no=None, vin=None, update_by=update_by, update_time=update_time)
+        )
 
     @classmethod
     async def replace_devices(cls, db: AsyncSession, vehicle_id: int, devices: list, user_name: str) -> None:
         await db.execute(delete(TruckVehicleDevice).where(TruckVehicleDevice.vehicle_id == vehicle_id))
-        db.add_all([TruckVehicleDevice(vehicle_id=vehicle_id, create_by=user_name, update_by=user_name, **device.model_dump(exclude={'device_id'})) for device in devices])
+        # 达梦不支持「多行 INSERT + RETURNING」一次性取回自增主键（dmsqlalchemy 报
+        # FlushError: Multi-row INSERT ... did not produce the correct number of INSERTed
+        # rows for RETURNING），因此逐条 add + flush，避免一台车挂多个安全设备时失败。
+        for device in devices:
+            db.add(
+                TruckVehicleDevice(
+                    vehicle_id=vehicle_id,
+                    create_by=user_name,
+                    update_by=user_name,
+                    **device.model_dump(exclude={'device_id'}),
+                )
+            )
+            await db.flush()
 
     @classmethod
     async def get_devices(cls, db: AsyncSession, vehicle_id: int) -> Sequence[TruckVehicleDevice]:

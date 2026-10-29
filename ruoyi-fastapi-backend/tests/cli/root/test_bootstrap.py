@@ -42,6 +42,8 @@ print(json.dumps({
         cwd=BACKEND_DIR,
         capture_output=True,
         text=True,
+        encoding='utf-8',
+        errors='replace',
         check=False,
     )
 
@@ -107,6 +109,8 @@ print(json.dumps({
         cwd=BACKEND_DIR,
         capture_output=True,
         text=True,
+        encoding='utf-8',
+        errors='replace',
         check=False,
     )
 
@@ -168,6 +172,8 @@ print(json.dumps({
         cwd=BACKEND_DIR,
         capture_output=True,
         text=True,
+        encoding='utf-8',
+        errors='replace',
         check=False,
     )
 

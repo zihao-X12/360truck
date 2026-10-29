@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS truck_owner (
 CREATE TABLE IF NOT EXISTS truck_vehicle (
   vehicle_id BIGINT NOT NULL AUTO_INCREMENT COMMENT '车辆ID',
   project_name VARCHAR(100) DEFAULT NULL COMMENT '工地名称',
-  plate_no VARCHAR(20) NOT NULL COMMENT '车牌号',
+  plate_no VARCHAR(20) DEFAULT NULL COMMENT '车牌号（软删后置空以释放唯一键）',
   plate_color VARCHAR(20) NOT NULL COMMENT '车牌颜色',
   vehicle_type VARCHAR(30) DEFAULT NULL COMMENT '车辆类型',
   vehicle_brand VARCHAR(100) DEFAULT NULL COMMENT '车辆品牌',
@@ -102,7 +102,7 @@ CREATE TABLE IF NOT EXISTS truck_warning_rule (
   rule_name VARCHAR(100) NOT NULL COMMENT '规则名称',
   required_device_types TEXT DEFAULT NULL COMMENT '应安装设备类型JSON数组',
   level_one_threshold INT NOT NULL DEFAULT 2 COMMENT '一级预警阈值',
-  level_two_threshold INT NOT NULL DEFAULT 1 COMMENT '二级预警阈值',
+  level_two_threshold INT NOT NULL DEFAULT 2 COMMENT '二级预警阈值（当前与一级相同，表示只保留一级预警）',
   status CHAR(1) NOT NULL DEFAULT '0' COMMENT '状态（0正常 1停用）',
   create_by VARCHAR(64) DEFAULT '' COMMENT '创建者',
   create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -205,12 +205,13 @@ UPDATE sys_menu SET order_num = 5 WHERE menu_id = 105;
 UPDATE sys_menu SET order_num = 6 WHERE menu_id = 106;
 UPDATE sys_menu SET order_num = 7 WHERE menu_id = 121;
 
--- 默认预警规则：两类设备均缺失为一级预警，缺失一类为二级预警。
+-- 默认预警规则：应安装设备共 2 项，缺装 2 项（一项都没装）为一级预警。
+-- 二级阈值与一级相同，表示当前只保留一级预警，缺 1 项不预警。
 INSERT IGNORE INTO truck_warning_rule (
   rule_id, rule_name, required_device_types, level_one_threshold, level_two_threshold,
   status, create_by, create_time, remark
 ) VALUES (
-  1, '安全设备缺装预警', '["brake_assist","panoramic_360"]', 2, 1,
+  1, '安全设备缺装预警', '["brake_assist","panoramic_360"]', 2, 2,
   '0', 'admin', NOW(), '刹车辅助系统和360全景影像为应安装设备'
 );
 

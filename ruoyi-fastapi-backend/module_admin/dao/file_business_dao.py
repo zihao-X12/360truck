@@ -170,8 +170,10 @@ class FileReferenceDao:
             .values(business_type=None, business_id=None)
         )
         if file_reference_list:
-            db.add_all(file_reference_list)
-            await db.flush()
+            # 逐条 add + flush：达梦不支持「多行 INSERT + RETURNING」（详见 vehicle_dao 说明）
+            for reference in file_reference_list:
+                db.add(reference)
+                await db.flush()
         await cls._refresh_file_expire_times(db, affected_file_ids, file_info_map)
 
     @staticmethod
@@ -402,8 +404,10 @@ class FileRetentionNoticeDao:
         :return: None
         """
         if notice_list:
-            db.add_all(notice_list)
-            await db.flush()
+            # 逐条 add + flush：达梦不支持「多行 INSERT + RETURNING」（详见 vehicle_dao 说明）
+            for notice in notice_list:
+                db.add(notice)
+                await db.flush()
 
     @classmethod
     async def invalidate_expiring_notices(cls, db: AsyncSession, file_ids: list[str]) -> None:

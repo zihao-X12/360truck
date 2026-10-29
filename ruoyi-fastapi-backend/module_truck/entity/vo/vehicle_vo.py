@@ -42,6 +42,8 @@ class TruckVehicleModel(BaseModel):
     owner_id: int | None = None
     owner_type: Literal['enterprise', 'individual'] | None = None
     dept_id: int | None = None
+    # 分管中队名称，仅查询响应填充，用于跨中队查看时标明车辆归属
+    dept_name: str | None = None
     photo_file_id: str | None = None
     vehicle_status: Literal['normal', 'stopped', 'transferred', 'scrapped'] = 'normal'
     supervision_flag: Literal['0', '1'] = '0'

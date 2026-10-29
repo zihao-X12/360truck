@@ -55,16 +55,25 @@ class TruckDashboardDao:
         ).all()
 
     @classmethod
-    async def get_dept_owner_counts(cls, db: AsyncSession, scope: ColumnElement) -> list:
+    async def get_dept_owner_counts(cls, db: AsyncSession, vehicle_scope: ColumnElement) -> list:
+        """
+        按分管中队统计车辆所属主体数（企业/个人）。
+
+        口径必须与同一行的车辆数一致：车辆数按「车辆分管中队」统计，主体是车辆的
+        归集维度且允许跨中队（挂靠车辆），因此这里按车辆分管中队归集主体，
+        而不是按主体的登记归属中队。否则同一行两个数字口径不同、无法对齐。
+        """
         return (
             await db.execute(
                 select(
-                    TruckOwner.dept_id,
-                    func.sum(case((TruckOwner.owner_type == 'enterprise', 1), else_=0)),
-                    func.sum(case((TruckOwner.owner_type == 'individual', 1), else_=0)),
+                    TruckVehicle.dept_id,
+                    func.count(func.distinct(case((TruckOwner.owner_type == 'enterprise', TruckOwner.owner_id)))),
+                    func.count(func.distinct(case((TruckOwner.owner_type == 'individual', TruckOwner.owner_id)))),
                 )
-                .where(TruckOwner.del_flag == '0', scope)
-                .group_by(TruckOwner.dept_id)
+                .select_from(TruckVehicle)
+                .join(TruckOwner, TruckOwner.owner_id == TruckVehicle.owner_id)
+                .where(TruckVehicle.del_flag == '0', TruckOwner.del_flag == '0', vehicle_scope)
+                .group_by(TruckVehicle.dept_id)
             )
         ).all()
 

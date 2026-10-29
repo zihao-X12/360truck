@@ -9,6 +9,17 @@ from typing import Any
 import pytest
 
 
+def _utf8_env() -> dict[str, str]:
+    """
+    构造强制 UTF-8 的子进程环境。
+
+    CLI 输出包含中文与 emoji，在 Windows 中文环境（GBK 控制台）下按默认区域编码
+    解码会得到乱码甚至 `UnicodeDecodeError`，导致输出契约断言失败。
+    这里同时固定子进程的 IO 编码与父进程的解码编码，使断言结果与平台无关。
+    """
+    return {**os.environ, 'PYTHONUTF8': '1', 'PYTHONIOENCODING': 'utf-8'}
+
+
 @pytest.fixture
 def backend_dir() -> Path:
     return Path(__file__).resolve().parents[3]
@@ -22,7 +33,10 @@ def run_cli_command(backend_dir: Path) -> Callable[..., subprocess.CompletedProc
             cwd=backend_dir,
             capture_output=True,
             text=True,
+            encoding='utf-8',
+            errors='replace',
             check=False,
+            env=_utf8_env(),
         )
 
     return _run_cli_command
@@ -53,9 +67,11 @@ def run_cli_completion_command(
             cwd=backend_dir,
             capture_output=True,
             text=True,
+            encoding='utf-8',
+            errors='replace',
             check=False,
             env={
-                **os.environ,
+                **_utf8_env(),
                 'COMP_WORDS': comp_words,
                 'COMP_CWORD': str(comp_cword),
                 '_RUOYI_COMPLETE': instruction,

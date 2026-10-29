@@ -48,7 +48,7 @@
 
 <script setup name="TruckWarning">
 import { listWarning, recalculateWarning } from '@/api/truck/warning'
-import { listTruckDeptOptions } from '@/api/truck/dept'
+import { filterTruckSquads, listTruckDeptOptions } from '@/api/truck/dept'
 import { useRoute, useRouter } from 'vue-router'
 
 const route = useRoute()
@@ -89,7 +89,7 @@ function handleRecalculate() {
   }).catch(() => {})
 }
 
-listTruckDeptOptions().then(response => { deptOptions.value = proxy.handleTree(response.data, 'deptId') })
+listTruckDeptOptions().then(response => { deptOptions.value = filterTruckSquads(proxy.handleTree(response.data, 'deptId')) })
 getList()
 </script>
 

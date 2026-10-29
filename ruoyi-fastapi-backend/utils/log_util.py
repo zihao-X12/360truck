@@ -15,6 +15,10 @@ from config.env import AppConfig, LogConfig
 from middlewares.trace_middleware import TraceCtx
 from utils.server_util import WorkerIdUtil
 
+# 日志文件统一使用 UTF-8。Loguru 默认按系统区域编码写文件，在 Windows 中文环境
+# （GBK）下中文日志会变成乱码，并可能因无法编码 emoji 抛出 UnicodeEncodeError。
+LOG_FILE_ENCODING = 'utf-8'
+
 
 def _split_field_tokens(field_name: str) -> tuple[str, ...]:
     """
@@ -633,6 +637,7 @@ class LoggerInitializer:
                     filter=self._info_file_filter,
                     serialize=False,
                     format=self._json_log_formatter,
+                    encoding=LOG_FILE_ENCODING,
                 )
                 configured_logger.add(
                     error_log_path,
@@ -644,6 +649,7 @@ class LoggerInitializer:
                     filter=self._error_file_filter,
                     serialize=False,
                     format=self._json_log_formatter,
+                    encoding=LOG_FILE_ENCODING,
                 )
             else:
                 configured_logger.add(
@@ -655,6 +661,7 @@ class LoggerInitializer:
                     enqueue=True,
                     filter=self._info_file_filter,
                     format=self._plain_log_formatter,
+                    encoding=LOG_FILE_ENCODING,
                 )
                 configured_logger.add(
                     error_log_path,
@@ -665,6 +672,7 @@ class LoggerInitializer:
                     enqueue=True,
                     filter=self._error_file_filter,
                     format=self._plain_log_formatter,
+                    encoding=LOG_FILE_ENCODING,
                 )
         self._configure_logging()
         return configured_logger

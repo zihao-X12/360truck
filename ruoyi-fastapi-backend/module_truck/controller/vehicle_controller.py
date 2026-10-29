@@ -5,7 +5,7 @@ from typing import Annotated
 from fastapi import File, Form, Path, Query, Request, Response, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic_validation_decorator import ValidateFields
-from sqlalchemy import ColumnElement, select
+from sqlalchemy import ColumnElement, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from common.annotation.log_annotation import Log
@@ -22,7 +22,7 @@ from module_admin.entity.vo.dept_vo import DeptModel
 from module_admin.entity.vo.user_vo import CurrentUserModel
 from module_admin.service.dept_service import DeptService
 from module_truck.dao.vehicle_dao import TruckVehicleDao
-from module_truck.entity.do.truck_do import TruckVehicle
+from module_truck.entity.do.truck_do import TruckOwner, TruckVehicle
 from module_truck.entity.vo.vehicle_vo import DeleteTruckVehicleModel, TruckVehicleModel, TruckVehiclePageQueryModel
 from module_truck.service.vehicle_import_service import TruckVehicleImportService
 from module_truck.service.vehicle_service import TruckVehicleService
@@ -40,15 +40,22 @@ async def get_truck_dept_options(
     db: Annotated[AsyncSession, DBSessionDependency()],
     scope: Annotated[ColumnElement, DataScopeDependency(SysDept)],
 ) -> Response:
-    """Return only the truck squads available within the current user's data scope."""
+    """
+    返回当前用户数据范围内的中队选项树。
+
+    必须连同中队所属的大队节点一起返回：前端使用 handleTree 组装树，
+    若父节点缺失，各中队会被当作根节点，树形选择器只能匹配到大队节点，
+    导致下拉框显示部门 ID 且无法选择具体中队。
+    大队节点本身仅作树根，不参与数据权限判断。
+    """
     departments = (
         await db.execute(
             select(SysDept)
             .where(
-                SysDept.parent_id == TRUCK_BRIGADE_DEPT_ID,
+                or_(SysDept.dept_id == TRUCK_BRIGADE_DEPT_ID, SysDept.parent_id == TRUCK_BRIGADE_DEPT_ID),
                 SysDept.status == '0',
                 SysDept.del_flag == '0',
-                scope,
+                or_(scope, SysDept.dept_id == TRUCK_BRIGADE_DEPT_ID),
             )
             .order_by(SysDept.order_num)
         )
@@ -57,8 +64,8 @@ async def get_truck_dept_options(
 
 
 @vehicle_controller.get('/list', response_model=PageResponseModel[TruckVehicleModel], dependencies=[UserInterfaceAuthDependency('truck:vehicle:query')])
-async def get_vehicle_list(request: Request, query: Annotated[TruckVehiclePageQueryModel, Query()], db: Annotated[AsyncSession, DBSessionDependency()], scope: Annotated[ColumnElement, DataScopeDependency(TruckVehicle)]) -> Response:
-    return ResponseUtil.success(model_content=await TruckVehicleService.get_list(db, query, scope, True))
+async def get_vehicle_list(request: Request, query: Annotated[TruckVehiclePageQueryModel, Query()], db: Annotated[AsyncSession, DBSessionDependency()], scope: Annotated[ColumnElement, DataScopeDependency(TruckVehicle)], owner_scope: Annotated[ColumnElement, DataScopeDependency(TruckOwner)]) -> Response:
+    return ResponseUtil.success(model_content=await TruckVehicleService.get_list(db, query, scope, True, owner_scope))
 
 
 @vehicle_controller.get('/import-template', response_class=StreamingResponse, dependencies=[UserInterfaceAuthDependency('truck:vehicle:import')])

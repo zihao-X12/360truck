@@ -22,8 +22,15 @@ class TruckWarningService:
 
     @classmethod
     def parse_rule(cls, rule: TruckWarningRule | None) -> tuple[list[str], int, int]:
+        """
+        解析预警规则。
+
+        默认阈值 2 / 2：应安装设备共 2 项（刹车辅助系统 + 360 全景影像），
+        缺装数 >= 2 即「一项都没装」→ 一级预警；缺 1 项不再预警。
+        两级阈值相同表示当前业务只保留单一预警级别。
+        """
         if not rule:
-            return cls.DEFAULT_REQUIRED_DEVICE_TYPES, 2, 1
+            return cls.DEFAULT_REQUIRED_DEVICE_TYPES, 2, 2
         try:
             required = json.loads(rule.required_device_types or '[]')
         except (TypeError, json.JSONDecodeError):

@@ -95,10 +95,24 @@ class TruckOwnerDao:
 
     @classmethod
     async def delete(cls, db: AsyncSession, owner_id: int, update_by: str, update_time: datetime) -> None:
+        """
+        软删除主体。
+
+        同时清空 `credit_code` 与 `id_card_no`：这两个字段是单列唯一索引，
+        若保留软删记录的身份信息，重建同一主体时会被唯一约束拦下并报
+        `Duplicate entry`。清空后身份标识可复用，主体名称、归属历史与
+        操作日志仍保留完整审计痕迹。
+
+        :param db: orm对象
+        :param owner_id: 主体ID
+        :param update_by: 更新者
+        :param update_time: 更新时间
+        :return: None
+        """
         await db.execute(
             update(TruckOwner)
             .where(TruckOwner.owner_id == owner_id)
-            .values(del_flag='2', update_by=update_by, update_time=update_time)
+            .values(del_flag='2', credit_code=None, id_card_no=None, update_by=update_by, update_time=update_time)
         )
 
     @classmethod
@@ -107,15 +121,26 @@ class TruckOwnerDao:
 
     @classmethod
     async def count_vehicles_by_owner_ids(
-        cls, db: AsyncSession, owner_ids: list[int], vehicle_scope: ColumnElement
+        cls, db: AsyncSession, owner_ids: list[int], vehicle_scope: ColumnElement | None = None
     ) -> dict[int, int]:
+        """
+        统计各主体名下车辆数。
+
+        :param db: 数据库会话
+        :param owner_ids: 主体 ID 列表
+        :param vehicle_scope: 车辆数据权限过滤条件；主体归集视图要求展示跨中队全部车辆，故默认不过滤
+        :return: 主体 ID 到车辆数的映射
+        """
         if not owner_ids:
             return {}
+        conditions = [TruckVehicle.owner_id.in_(owner_ids), TruckVehicle.del_flag == '0']
+        if vehicle_scope is not None:
+            conditions.append(vehicle_scope)
         records = (
             await db.execute(
                 select(TruckVehicle.owner_id, func.count(TruckVehicle.vehicle_id))
-                .where(TruckVehicle.owner_id.in_(owner_ids), TruckVehicle.del_flag == '0', vehicle_scope)
+                .where(*conditions)
                 .group_by(TruckVehicle.owner_id)
             )
         ).all()
-        return {owner_id: count for owner_id, count in records}
+        return dict(records)

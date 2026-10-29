@@ -367,6 +367,7 @@ onMounted(() => {
 <style scoped>
 .user-management { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 20px; }
 .org-panel { min-height: calc(100vh - 124px); padding-right: 18px; border-right: 1px solid var(--el-border-color-light); }
+.org-panel :deep(.el-tree) { background-color: transparent; }
 .panel-title { margin-bottom: 14px; color: var(--el-text-color-primary); font-size: 15px; font-weight: 600; }
 .user-content { min-width: 0; }
 .role-tag { margin-right: 4px; }

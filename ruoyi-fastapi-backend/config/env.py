@@ -47,23 +47,29 @@ class DataBaseSettings(BaseSettings):
     数据库配置
     """
 
-    db_type: Literal['mysql', 'postgresql'] = 'mysql'
+    db_type: Literal['mysql', 'postgresql', 'dm'] = 'mysql'
     db_host: str = '127.0.0.1'
     db_port: int = 3306
     db_username: str = 'root'
     db_password: str = 'mysqlroot'
-    db_database: str = 'ruoyi-fastapi'
+    db_database: str = 'truck_bank'
     db_echo: bool = True
     db_max_overflow: int = 10
     db_pool_size: int = 50
     db_pool_recycle: int = 3600
     db_pool_timeout: int = 30
+    # 达梦专属：兼容模式（DM / MYSQL / TSQL / ORACLE）与 SQL 语法解析模块（DM / MYSQL / TSQL）
+    dm_compatible_mode: Literal['DM', 'MYSQL', 'TSQL', 'ORACLE'] = 'DM'
+    dm_parse_type: Literal['', 'DM', 'MYSQL', 'TSQL'] = ''
 
     @computed_field
     @property
     def sqlglot_parse_dialect(self) -> str:
         if self.db_type == 'postgresql':
             return 'postgres'
+        # sqlglot 没有达梦方言；达梦语法属 Oracle 系，用 oracle 解析
+        if self.db_type == 'dm':
+            return 'oracle'
         return self.db_type
 
 
@@ -141,7 +147,8 @@ class TransportCryptoSettings(BaseSettings):
     transport_crypto_exclude_paths: str = (
         '/openapi.json,/docs,/docs/oauth2-redirect,/redoc,'
         '/transport/crypto/frontend-config,/transport/crypto/public-key,/common/download,/common/download/resource,'
-        '/common/files,/system/file/download'
+        '/common/files,/system/file/download,'
+        '/VIID'
     )
 
 
@@ -161,6 +168,29 @@ class GenSettings:
     def __init__(self) -> None:
         if not os.path.exists(self.GEN_PATH):
             os.makedirs(self.GEN_PATH)
+
+
+class Gat1400Settings(BaseSettings):
+    """
+    GA/T1400 视图库对接配置
+    """
+
+    gat1400_enabled: bool = False
+    gat1400_platform_addr: str = ''
+    gat1400_device_id: str = ''
+    gat1400_username: str = ''
+    gat1400_password: str = ''
+    gat1400_keepalive_interval: int = 60
+    gat1400_register_timeout: int = 10
+    # 订阅配置
+    gat1400_subscribe_detail: str = '13'
+    gat1400_subscribe_resource_uri: str = ''
+    gat1400_subscribe_applicant_name: str = ''
+    gat1400_subscribe_applicant_org: str = ''
+    gat1400_subscribe_days: int = 30
+    gat1400_subscribe_receive_addr: str = ''
+    # 通知接收白名单（逗号分隔的 IP 列表，留空表示不限制，仅建议在公安网内网留空）
+    gat1400_notify_allowed_ips: str = ''
 
 
 class UploadSettings:
@@ -283,6 +313,12 @@ class GetConfig:
         # 实例化代码生成配置
         return GenSettings()
 
+    def get_gat1400_config(self) -> Gat1400Settings:
+        """
+        获取GA/T1400对接配置
+        """
+        return Gat1400Settings()
+
     def get_upload_config(self) -> UploadSettings:
         """
         获取上传配置
@@ -341,5 +377,7 @@ LogConfig = get_config.get_log_config()
 TransportCryptoConfig = get_config.get_transport_crypto_config()
 # 代码生成配置
 GenConfig = get_config.get_gen_config()
+# GA/T1400对接配置
+Gat1400Config = get_config.get_gat1400_config()
 # 上传配置
 UploadConfig = get_config.get_upload_config()

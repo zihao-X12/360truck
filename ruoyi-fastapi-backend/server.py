@@ -13,6 +13,8 @@ from config.get_scheduler import SchedulerUtil
 from exceptions.handle import handle_exception
 from middlewares.handle import handle_middleware
 from module_admin.service.log_service import LogAggregatorService
+from module_gat1400.service.gat1400_notify_service import Gat1400NotifyService
+from module_gat1400.service.gat1400_session_service import Gat1400SessionService
 from sub_applications.handle import handle_sub_applications
 from utils.common_util import worship
 from utils.log_util import logger
@@ -29,6 +31,8 @@ async def _start_background_tasks(app: FastAPI) -> None:
     """
     await SchedulerUtil.init_system_scheduler(app.state.redis)
     app.state.log_aggregator_task = asyncio.create_task(LogAggregatorService.consume_stream(app.state.redis))
+    await Gat1400SessionService.start(app.state.redis)
+    await Gat1400NotifyService.start(app.state.redis)
 
 
 async def _stop_background_tasks(app: FastAPI) -> None:
@@ -52,6 +56,8 @@ async def _stop_background_tasks(app: FastAPI) -> None:
             await lock_task
         except asyncio.CancelledError:
             pass
+    await Gat1400NotifyService.stop()
+    await Gat1400SessionService.stop()
     await RedisUtil.close_redis_pool(app)
     await SchedulerUtil.close_system_scheduler()
     await close_async_engine()

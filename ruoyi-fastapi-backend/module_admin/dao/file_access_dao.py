@@ -105,8 +105,10 @@ class FileAclDao:
         """
         await db.execute(delete(SysFileAcl).where(SysFileAcl.file_id == file_id))
         if file_acl_list:
-            db.add_all(file_acl_list)
-            await db.flush()
+            # 逐条 add + flush：达梦不支持「多行 INSERT + RETURNING」（详见 vehicle_dao 说明）
+            for acl in file_acl_list:
+                db.add(acl)
+                await db.flush()
 
     @classmethod
     async def replace_file_acl_lists(
@@ -125,8 +127,10 @@ class FileAclDao:
         """
         await db.execute(delete(SysFileAcl).where(SysFileAcl.file_id.in_(file_ids)))
         if file_acl_list:
-            db.add_all(file_acl_list)
-            await db.flush()
+            # 逐条 add + flush：达梦不支持「多行 INSERT + RETURNING」（详见 vehicle_dao 说明）
+            for acl in file_acl_list:
+                db.add(acl)
+                await db.flush()
 
     @classmethod
     async def get_acl_subject_name_map(

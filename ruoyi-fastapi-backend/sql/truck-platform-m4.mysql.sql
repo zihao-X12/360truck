@@ -3,7 +3,7 @@ INSERT IGNORE INTO truck_warning_rule (
   rule_id, rule_name, required_device_types, level_one_threshold, level_two_threshold,
   status, create_by, create_time, remark
 ) VALUES (
-  1, '安全设备缺装预警', '["brake_assist","panoramic_360"]', 2, 1,
+  1, '安全设备缺装预警', '["brake_assist","panoramic_360"]', 2, 2,
   '0', 'admin', NOW(), '刹车辅助系统和360全景影像为应安装设备'
 );
 

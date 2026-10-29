@@ -36,7 +36,7 @@ class TruckVehicle(Base):
 
     vehicle_id = Column(BigInteger, primary_key=True, autoincrement=True)
     project_name = Column(String(100))
-    plate_no = Column(String(20), nullable=False)
+    plate_no = Column(String(20), nullable=True)
     plate_color = Column(String(20), nullable=False)
     vehicle_type = Column(String(30))
     vehicle_brand = Column(String(100))
@@ -104,7 +104,7 @@ class TruckWarningRule(Base):
     rule_name = Column(String(100), nullable=False, unique=True)
     required_device_types = Column(Text)
     level_one_threshold = Column(Integer, nullable=False, server_default='2')
-    level_two_threshold = Column(Integer, nullable=False, server_default='1')
+    level_two_threshold = Column(Integer, nullable=False, server_default='2')
     status = Column(CHAR(1), nullable=False, server_default='0')
     create_by = Column(String(64), server_default="''")
     create_time = Column(DateTime, default=datetime.now)

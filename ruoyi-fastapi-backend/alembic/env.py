@@ -35,7 +35,7 @@ if alembic_config.config_file_name is not None:
 # add your model's MetaData object here
 # for 'autogenerate' support
 target_metadata = Base.metadata
-# ASYNC_SQLALCHEMY_DATABASE_URL = 'mysql+asyncmy://root:mysqlroot@127.0.0.1:3306/ruoyi-fastapi'
+# ASYNC_SQLALCHEMY_DATABASE_URL = 'mysql+asyncmy://root:mysqlroot@127.0.0.1:3306/truck_bank'
 # other values from the config, defined by the needs of env.py,
 alembic_config.set_main_option('sqlalchemy.url', ASYNC_SQLALCHEMY_DATABASE_URL)
 

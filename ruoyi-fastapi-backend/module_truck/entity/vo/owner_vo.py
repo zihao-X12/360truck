@@ -14,6 +14,8 @@ class TruckOwnerModel(BaseModel):
     owner_name: str | None = None
     credit_code: str | None = None
     id_card_no: str | None = None
+    # 主体登记归属中队：仅用于登记统计与列表筛选，不决定名下车辆的分管中队。
+    # 挂靠场景下同一主体的车辆可由不同中队分管，车辆分管以 truck_vehicle.dept_id 为准。
     dept_id: int | None = None
     contact_name: str | None = None
     contact_phone: str | None = None

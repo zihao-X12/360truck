@@ -25,8 +25,14 @@ class TruckDashboardService:
     async def get_dept_stats(
         cls, db: AsyncSession, vehicle_scope: ColumnElement, owner_scope: ColumnElement
     ) -> list[TruckDeptStatModel]:
+        """
+        中队统计。
+
+        车辆数与主体数均按「车辆分管中队」口径统计，保证同一行两个数字可对齐；
+        owner_scope 仅用于主体总量卡片，不参与按中队归集。
+        """
         vehicle_counts = dict(await TruckDashboardDao.get_dept_vehicle_counts(db, vehicle_scope))
-        owner_counts = {row[0]: (row[1] or 0, row[2] or 0) for row in await TruckDashboardDao.get_dept_owner_counts(db, owner_scope)}
+        owner_counts = {row[0]: (row[1] or 0, row[2] or 0) for row in await TruckDashboardDao.get_dept_owner_counts(db, vehicle_scope)}
         result = []
         for dept_id, dept_name in await TruckDashboardDao.get_departments(db):
             enterprise_count, individual_count = owner_counts.get(dept_id, (0, 0))

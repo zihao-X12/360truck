@@ -20,6 +20,8 @@ class SysNotice(Base):
     notice_title = Column(String(50), nullable=False, comment='公告标题')
     notice_type = Column(CHAR(1), nullable=False, comment='公告类型（1通知 2公告）')
     notice_content = Column(
+        # 仅 MySQL 使用 LONGBLOB；PostgreSQL / 达梦等一律用通用 LargeBinary，
+        # 且不能把 mysql.LONGBLOB 泄漏给非 MySQL 方言（达梦方言无法渲染该类型）
         mysql.LONGBLOB if DataBaseConfig.db_type == 'mysql' else LargeBinary,
         nullable=True,
         server_default=SqlalchemyUtil.get_server_default_null(DataBaseConfig.db_type, False),

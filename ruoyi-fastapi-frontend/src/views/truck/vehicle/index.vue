@@ -47,7 +47,7 @@
       <el-table-column label="车牌颜色" width="110"><template #default="scope"><dict-tag :options="truck_plate_color" :value="scope.row.plateColor" /></template></el-table-column>
       <el-table-column label="车辆类型" min-width="125"><template #default="scope"><dict-tag :options="truck_vehicle_type" :value="scope.row.vehicleType" /></template></el-table-column>
       <el-table-column label="机动车所有人" min-width="150" prop="motorOwnerName" show-overflow-tooltip />
-      <el-table-column label="所属中队" min-width="125"><template #default="scope">{{ getDeptName(scope.row.deptId) }}</template></el-table-column>
+      <el-table-column label="分管中队" min-width="125"><template #default="scope">{{ getDeptName(scope.row) }}</template></el-table-column>
       <el-table-column label="来源" width="105"><template #default="scope"><dict-tag :options="truck_source_type" :value="scope.row.sourceType" /></template></el-table-column>
       <el-table-column label="预警" width="105">
         <template #default="scope">
@@ -91,7 +91,7 @@
 <script setup name="TruckVehicle">
 import { getOwner } from '@/api/truck/owner'
 import { delVehicle, importVehicle, listVehicle } from '@/api/truck/vehicle'
-import { listTruckDeptOptions } from '@/api/truck/dept'
+import { filterTruckSquads, listTruckDeptOptions } from '@/api/truck/dept'
 import download from '@/plugins/download'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -143,7 +143,8 @@ function handleDelete(row) {
     .then(() => { proxy.$modal.msgSuccess('删除成功'); getList() })
     .catch(() => {})
 }
-function getDeptName(deptId) { return deptList.value.find(item => item.deptId === deptId)?.deptName || '-' }
+// 分管中队名称优先取接口返回值：按主体跨中队查看时，别队分管的车辆不在本地 deptList 中
+function getDeptName(row) { return row.deptName || deptList.value.find(item => item.deptId === row.deptId)?.deptName || '-' }
 function openImport() { importDialog.open = true }
 function resetImport() {
   importDialog.file = null
@@ -183,7 +184,7 @@ async function submitImport() {
 
 listTruckDeptOptions().then(response => {
   deptList.value = response.data
-  deptOptions.value = proxy.handleTree(response.data, 'deptId')
+  deptOptions.value = filterTruckSquads(proxy.handleTree(response.data, 'deptId'))
 })
 if (ownerContext.ownerId && !ownerContext.ownerName) {
   getOwner(ownerContext.ownerId).then(response => { ownerContext.ownerName = response.data.ownerName })

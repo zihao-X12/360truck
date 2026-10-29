@@ -27,12 +27,14 @@ class SysRole(Base):
         comment='数据范围（1：全部数据权限 2：自定数据权限 3：本部门数据权限 4：本部门及以下数据权限）',
     )
     menu_check_strictly = Column(
+        # 仅 MySQL 使用 TINYINT；PostgreSQL / 达梦等用通用 SmallInteger
         mysql.TINYINT(display_width=1) if DataBaseConfig.db_type == 'mysql' else SmallInteger,
         nullable=True,
         server_default='1',
         comment='菜单树选择项是否关联显示',
     )
     dept_check_strictly = Column(
+        # 仅 MySQL 使用 TINYINT；PostgreSQL / 达梦等用通用 SmallInteger
         mysql.TINYINT(display_width=1) if DataBaseConfig.db_type == 'mysql' else SmallInteger,
         nullable=True,
         server_default='1',

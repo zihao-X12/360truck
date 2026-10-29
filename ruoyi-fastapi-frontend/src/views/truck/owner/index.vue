@@ -26,10 +26,24 @@
     <el-table v-loading="loading" :data="ownerList">
       <el-table-column label="主体名称" min-width="180" prop="ownerName" show-overflow-tooltip />
       <el-table-column label="类型" width="120"><template #default="scope"><dict-tag :options="truck_owner_type" :value="scope.row.ownerType" /></template></el-table-column>
-      <el-table-column label="所属中队" min-width="130"><template #default="scope">{{ getDeptName(scope.row.deptId) }}</template></el-table-column>
+      <el-table-column label="登记归属中队" min-width="140">
+        <template #header>
+          <span>登记归属中队</span>
+          <el-tooltip content="主体的登记归属，仅用于登记统计与筛选。挂靠车辆按车辆自己所属的中队分管，两者可以不同。" placement="top">
+            <el-icon style="margin-left: 4px; vertical-align: middle"><QuestionFilled /></el-icon>
+          </el-tooltip>
+        </template>
+        <template #default="scope">{{ getDeptName(scope.row.deptId) }}</template>
+      </el-table-column>
       <el-table-column label="联系人" min-width="110" prop="contactName" />
       <el-table-column label="联系电话" min-width="130" prop="contactPhone" />
       <el-table-column label="名下车辆" width="105" align="center">
+        <template #header>
+          <span>名下车辆</span>
+          <el-tooltip content="该主体名下全部车辆，包含其他中队分管的挂靠车辆。" placement="top">
+            <el-icon style="margin-left: 4px; vertical-align: middle"><QuestionFilled /></el-icon>
+          </el-tooltip>
+        </template>
         <template #default="scope">
           <el-button link type="primary" icon="Van" @click="handleVehicles(scope.row)">{{ scope.row.vehicleCount || 0 }} 辆</el-button>
         </template>
@@ -49,7 +63,17 @@
       <el-form ref="ownerRef" :model="form" :rules="rules" label-width="108px">
         <el-row :gutter="18">
           <el-col :span="12"><el-form-item label="主体类型" prop="ownerType"><el-select v-model="form.ownerType" class="w-full"><el-option v-for="item in truck_owner_type" :key="item.value" :label="item.label" :value="item.value" /></el-select></el-form-item></el-col>
-          <el-col :span="12"><el-form-item label="所属中队" prop="deptId"><el-tree-select v-model="form.deptId" :data="deptOptions" check-strictly class="w-full" node-key="deptId" :props="deptProps" /></el-form-item></el-col>
+          <el-col :span="12">
+            <el-form-item prop="deptId">
+              <template #label>
+                <span>登记归属中队</span>
+                <el-tooltip content="主体的登记归属，不决定名下车辆的分管中队。" placement="top">
+                  <el-icon style="margin-left: 4px; vertical-align: middle"><QuestionFilled /></el-icon>
+                </el-tooltip>
+              </template>
+              <el-tree-select v-model="form.deptId" :data="deptOptions" check-strictly class="w-full" node-key="deptId" :props="deptProps" />
+            </el-form-item>
+          </el-col>
           <el-col :span="12"><el-form-item :label="form.ownerType === 'enterprise' ? '企业名称' : '车主姓名'" prop="ownerName"><el-input v-model="form.ownerName" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item v-if="form.ownerType === 'enterprise'" label="统一社会信用代码"><el-input v-model="form.creditCode" /></el-form-item><el-form-item v-else label="身份证号"><el-input v-model="form.idCardNo" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="联系人"><el-input v-model="form.contactName" /></el-form-item></el-col>
@@ -66,7 +90,7 @@
 
 <script setup name="TruckOwner">
 import { addOwner, delOwner, getOwner, listOwner, updateOwner } from '@/api/truck/owner'
-import { listTruckDeptOptions } from '@/api/truck/dept'
+import { filterTruckSquads, listTruckDeptOptions } from '@/api/truck/dept'
 import useUserStore from '@/store/modules/user'
 import { useRouter } from 'vue-router'
 
@@ -87,7 +111,7 @@ const queryParams = reactive({ pageNum: 1, pageSize: 10, ownerName: undefined, o
 const form = ref({})
 const rules = { ownerType: [{ required: true, message: '请选择主体类型', trigger: 'change' }], ownerName: [{ required: true, message: '请输入主体名称', trigger: 'blur' }], deptId: [{ required: true, message: '请选择所属中队', trigger: 'change' }] }
 
-function getDeptOptions() { listTruckDeptOptions().then(response => { deptList.value = response.data; deptOptions.value = proxy.handleTree(response.data, 'deptId') }) }
+function getDeptOptions() { listTruckDeptOptions().then(response => { deptList.value = response.data; deptOptions.value = filterTruckSquads(proxy.handleTree(response.data, 'deptId')) }) }
 function getDeptName(deptId) { return deptList.value.find(item => item.deptId === deptId)?.deptName || '-' }
 function getList() { loading.value = true; listOwner(queryParams).then(response => { ownerList.value = response.rows; total.value = response.total }).finally(() => { loading.value = false }) }
 function reset() { form.value = { ownerId: undefined, ownerType: 'enterprise', ownerName: undefined, creditCode: undefined, idCardNo: undefined, deptId: userStore.deptId, contactName: undefined, contactPhone: undefined, address: undefined, status: '0', remark: undefined }; proxy.resetForm('ownerRef') }

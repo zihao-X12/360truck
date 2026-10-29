@@ -18,7 +18,7 @@ CREATE INDEX IF NOT EXISTS idx_truck_owner_name ON truck_owner(owner_name);
 
 CREATE TABLE IF NOT EXISTS truck_vehicle (
   vehicle_id BIGSERIAL PRIMARY KEY,
-  project_name VARCHAR(100), plate_no VARCHAR(20) NOT NULL, plate_color VARCHAR(20) NOT NULL,
+  project_name VARCHAR(100), plate_no VARCHAR(20), plate_color VARCHAR(20) NOT NULL,
   vehicle_type VARCHAR(30), vehicle_brand VARCHAR(100), vin VARCHAR(32) UNIQUE, rated_load NUMERIC(10,2),
   source_type VARCHAR(20), motor_owner_name VARCHAR(100), driver_name VARCHAR(50), driver_phone VARCHAR(30),
   affiliated_company VARCHAR(100), insurance_status VARCHAR(100), insurance_info VARCHAR(255),
@@ -53,21 +53,22 @@ CREATE INDEX IF NOT EXISTS idx_truck_owner_history_change_time ON truck_vehicle_
 
 CREATE TABLE IF NOT EXISTS truck_warning_rule (
   rule_id BIGSERIAL PRIMARY KEY, rule_name VARCHAR(100) NOT NULL UNIQUE, required_device_types TEXT,
-  level_one_threshold INTEGER NOT NULL DEFAULT 2, level_two_threshold INTEGER NOT NULL DEFAULT 1,
+  level_one_threshold INTEGER NOT NULL DEFAULT 2, level_two_threshold INTEGER NOT NULL DEFAULT 2,
   status CHAR(1) NOT NULL DEFAULT '0', create_by VARCHAR(64) DEFAULT '', create_time TIMESTAMP(0) DEFAULT CURRENT_TIMESTAMP,
   update_by VARCHAR(64) DEFAULT '', update_time TIMESTAMP(0), remark VARCHAR(500)
 );
 
 -- 松阳大队及辖区中队。固定ID用于初始化数据权限和测试数据关联。
-INSERT INTO sys_dept (dept_id, parent_id, ancestors, dept_name, order_num, status, del_flag, create_by, create_time, remark) VALUES
-  (9100, 0, '0', '松阳大队', 1, '0', '0', 'admin', CURRENT_TIMESTAMP, '大货车管理大队'),
-  (9101, 9100, '0,9100', '西屏中队', 1, '0', '0', 'admin', CURRENT_TIMESTAMP, '大货车管理辖区中队'),
-  (9102, 9100, '0,9100', '古市中队', 2, '0', '0', 'admin', CURRENT_TIMESTAMP, '大货车管理辖区中队'),
-  (9103, 9100, '0,9100', '江南中队', 3, '0', '0', 'admin', CURRENT_TIMESTAMP, '大货车管理辖区中队'),
-  (9104, 9100, '0,9100', '象溪中队', 4, '0', '0', 'admin', CURRENT_TIMESTAMP, '大货车管理辖区中队'),
-  (9105, 9100, '0,9100', '大东坝中队', 5, '0', '0', 'admin', CURRENT_TIMESTAMP, '大货车管理辖区中队'),
-  (9106, 9100, '0,9100', '玉岩中队', 6, '0', '0', 'admin', CURRENT_TIMESTAMP, '大货车管理辖区中队')
-ON CONFLICT (dept_id) DO UPDATE SET parent_id = EXCLUDED.parent_id, ancestors = EXCLUDED.ancestors, dept_name = EXCLUDED.dept_name, order_num = EXCLUDED.order_num, status = EXCLUDED.status, del_flag = EXCLUDED.del_flag, remark = EXCLUDED.remark;
+INSERT INTO sys_dept (dept_id, parent_id, ancestors, dept_name, order_num, status, del_flag, create_by, create_time) VALUES
+  (9100, 0, '0', '松阳大队', 1, '0', '0', 'admin', CURRENT_TIMESTAMP),
+  (9101, 9100, '0,9100', '西屏中队', 1, '0', '0', 'admin', CURRENT_TIMESTAMP),
+  (9102, 9100, '0,9100', '古市中队', 2, '0', '0', 'admin', CURRENT_TIMESTAMP),
+  (9103, 9100, '0,9100', '江南中队', 3, '0', '0', 'admin', CURRENT_TIMESTAMP),
+  (9104, 9100, '0,9100', '象溪中队', 4, '0', '0', 'admin', CURRENT_TIMESTAMP),
+  (9105, 9100, '0,9100', '大东坝中队', 5, '0', '0', 'admin', CURRENT_TIMESTAMP),
+  (9106, 9100, '0,9100', '玉岩中队', 6, '0', '0', 'admin', CURRENT_TIMESTAMP)
+ON CONFLICT (dept_id) DO UPDATE SET parent_id = EXCLUDED.parent_id, ancestors = EXCLUDED.ancestors, dept_name = EXCLUDED.dept_name, order_num = EXCLUDED.order_num, status = EXCLUDED.status, del_flag = EXCLUDED.del_flag;
+-- 注：PostgreSQL 模板的 sys_dept 没有 remark 列（MySQL 模板有），故此处不能写 remark。
 
 INSERT INTO sys_dict_type (dict_id, dict_name, dict_type, status, create_by, create_time, remark) VALUES
   (9001, '车辆类型', 'truck_vehicle_type', '0', 'admin', CURRENT_TIMESTAMP, '大货车管理车辆类型'),
@@ -142,12 +143,13 @@ UPDATE sys_menu SET order_num = 5 WHERE menu_id = 105;
 UPDATE sys_menu SET order_num = 6 WHERE menu_id = 106;
 UPDATE sys_menu SET order_num = 7 WHERE menu_id = 121;
 
--- 默认预警规则：两类设备均缺失为一级预警，缺失一类为二级预警。
+-- 默认预警规则：应安装设备共 2 项，缺装 2 项（一项都没装）为一级预警。
+-- 二级阈值与一级相同，表示当前只保留一级预警，缺 1 项不预警。
 INSERT INTO truck_warning_rule (
   rule_id, rule_name, required_device_types, level_one_threshold, level_two_threshold,
   status, create_by, create_time, remark
 ) VALUES (
-  1, '安全设备缺装预警', '["brake_assist","panoramic_360"]', 2, 1,
+  1, '安全设备缺装预警', '["brake_assist","panoramic_360"]', 2, 2,
   '0', 'admin', CURRENT_TIMESTAMP, '刹车辅助系统和360全景影像为应安装设备'
 ) ON CONFLICT DO NOTHING;
 

@@ -127,10 +127,16 @@ class NestedCliEnvironmentBuilder:
         """
         构建内部 CLI 子进程环境变量。
 
+        CLI 输出包含中文与 emoji，Windows 中文环境默认按 GBK 编码；这里固定子进程
+        的 IO 编码为 UTF-8，避免父进程按区域编码解码时出现乱码或 UnicodeDecodeError。
+        调用方已显式设置的编码变量优先保留。
+
         :param project_dir: 后端项目根目录
         :return: 子进程环境变量字典
         """
         process_env = dict(os.environ)
+        process_env.setdefault('PYTHONUTF8', '1')
+        process_env.setdefault('PYTHONIOENCODING', 'utf-8')
         project_dir_str = str(project_dir)
         python_path = process_env.get('PYTHONPATH', '').strip()
         if python_path:
@@ -304,6 +310,8 @@ class NestedCliSupport:
             command,
             capture_output=True,
             text=True,
+            encoding='utf-8',
+            errors='replace',
             check=False,
             cwd=str(project_dir),
             env=self.build_process_env(project_dir),
@@ -342,6 +350,8 @@ class NestedCliSupport:
         return subprocess.run(
             command,
             text=True,
+            encoding='utf-8',
+            errors='replace',
             check=False,
             cwd=str(project_dir),
             env=self.build_process_env(project_dir),
