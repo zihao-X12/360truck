@@ -5,7 +5,7 @@ $mysql = Join-Path $projectRoot '.runtime\mysql\mysql-8.0.42-winx64\bin\mysql.ex
 $redisCli = Join-Path $projectRoot '.runtime\redis\Redis-8.0.2-Windows-x64-msys2\redis-cli.exe'
 $mysqlArgs = @(
     '--host=127.0.0.1', '--port=3306', '--user=root', '--password=mysqlroot',
-    '--database=ruoyi-fastapi', '--default-character-set=utf8mb4'
+    '--database=truck_bank', '--default-character-set=utf8mb4'
 )
 $captchaKey = 'sys_config:sys.account.captchaEnabled'
 $originalCaptchaValue = & $redisCli -p 6379 -n 2 GET $captchaKey

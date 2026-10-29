@@ -41,7 +41,7 @@ services:
     container_name: ruoyi-mysql-test
     environment:
       MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: ruoyi-fastapi
+      MYSQL_DATABASE: truck_bank
     ports:
       - "13307:3306"
     volumes:

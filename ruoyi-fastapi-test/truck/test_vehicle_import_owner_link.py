@@ -66,14 +66,26 @@ async def _assert_owner_vehicle_ui(token: str, owner_id: int, owner_name: str) -
         await expect(
             page.locator('.el-form-item', has_text='归属主体').get_by_text(owner_name, exact=True)
         ).to_be_visible()
-        await expect(
-            page.locator('.el-form-item', has_text='所属中队').get_by_text('西屏中队', exact=True)
-        ).to_be_visible()
+        # 「分管中队」由车辆自身决定，不由归属主体带出，需显式选择；大队节点不可选
+        dept_item = page.locator('.el-form-item', has_text='分管中队')
+        await dept_item.locator('.el-select__wrapper').click()
+        dept_tree = page.locator('.el-tree-select__popper:visible .el-tree')
+        await expect(dept_tree.get_by_text('西屏中队', exact=True)).to_be_visible()
+        await expect(dept_tree.get_by_text('松阳大队', exact=True)).to_have_count(0)
+        await dept_tree.get_by_text('西屏中队', exact=True).click()
+        await expect(dept_item.get_by_text('西屏中队', exact=True)).to_be_visible()
         await context.close()
         await browser.close()
 
 
 def _assert_squad_scope(username: str, owner_name: str, owner_id: int, dept_id: int) -> None:
+    """
+    校验中队管理员的可见范围与主体归集口径。
+
+    「名下车辆」按业务规则（M6）为该主体跨中队的全部在管车辆：
+    主体虽由西屏分管车辆而可见，但企业名下另有古市中队的车，
+    因此数量为 2；而按 ownerId 查车辆时两辆都应返回，并各自带分管中队。
+    """
     session, _token = _authenticated_session(username)
     response = session.get(
         f'{Config.backend_url}/truck/owner/list',
@@ -84,7 +96,7 @@ def _assert_squad_scope(username: str, owner_name: str, owner_id: int, dept_id: 
     owners = response.json().get('rows') or []
     assert len(owners) == 1
     assert owners[0]['ownerId'] == owner_id
-    assert owners[0]['vehicleCount'] == 1
+    assert owners[0]['vehicleCount'] == IMPORTED_VEHICLE_COUNT
 
     response = session.get(
         f'{Config.backend_url}/truck/vehicle/list',
@@ -93,8 +105,19 @@ def _assert_squad_scope(username: str, owner_name: str, owner_id: int, dept_id: 
     )
     response.raise_for_status()
     vehicles = response.json().get('rows') or []
-    assert len(vehicles) == 1
-    assert vehicles[0]['deptId'] == dept_id
+    assert len(vehicles) == IMPORTED_VEHICLE_COUNT
+    assert dept_id in {vehicle['deptId'] for vehicle in vehicles}
+    assert all(vehicle.get('deptName') for vehicle in vehicles)
+
+    # 默认车辆列表仍严格按车辆分管中队隔离
+    response = session.get(
+        f'{Config.backend_url}/truck/vehicle/list',
+        params={'pageNum': 1, 'pageSize': 10, 'plateNo': vehicles[0]['plateNo'][:4]},
+        timeout=10,
+    )
+    response.raise_for_status()
+    scoped = response.json().get('rows') or []
+    assert all(vehicle['deptId'] == dept_id for vehicle in scoped)
 
 
 @pytest.mark.asyncio

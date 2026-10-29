@@ -2,7 +2,7 @@ import re
 
 from playwright.async_api._context_manager import PlaywrightContextManager
 
-from common.login_helper import LoginHelper
+from common.login_helper import LoginHelper, build_auth_cookie
 
 
 class BasePageTest:
@@ -22,18 +22,7 @@ class BasePageTest:
         self.browser = await playwright.chromium.launch(headless=True)
         self.context = await self.browser.new_context()
         # 设置认证token
-        await self.context.add_cookies(
-            [
-                {
-                    'name': 'Admin-Token',
-                    'value': self.token,
-                    'domain': 'localhost',
-                    'path': '/',
-                    'httpOnly': False,
-                    'secure': False,
-                }
-            ]
-        )
+        await self.context.add_cookies([build_auth_cookie(self.token)])
         self.page = await self.context.new_page()
 
     async def teardown(self) -> None:

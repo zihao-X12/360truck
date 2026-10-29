@@ -2,7 +2,7 @@ import pytest
 from playwright.async_api import async_playwright
 
 from common.config import Config
-from common.login_helper import LoginHelper
+from common.login_helper import LoginHelper, build_auth_cookie
 
 
 @pytest.mark.asyncio
@@ -17,18 +17,7 @@ async def test_dashboard_page() -> None:
         browser = await p.chromium.launch(headless=True)
         context = await browser.new_context()
         # 设置认证token
-        await context.add_cookies(
-            [
-                {
-                    'name': 'Admin-Token',
-                    'value': token,
-                    'domain': 'localhost',
-                    'path': '/',
-                    'httpOnly': False,
-                    'secure': False,
-                }
-            ]
-        )
+        await context.add_cookies([build_auth_cookie(token)])
         page = await context.new_page()
 
         # 访问仪表盘页面
@@ -55,18 +44,7 @@ async def test_druid_page() -> None:
         browser = await p.chromium.launch(headless=True)
         context = await browser.new_context()
         # 设置认证token
-        await context.add_cookies(
-            [
-                {
-                    'name': 'Admin-Token',
-                    'value': token,
-                    'domain': 'localhost',
-                    'path': '/',
-                    'httpOnly': False,
-                    'secure': False,
-                }
-            ]
-        )
+        await context.add_cookies([build_auth_cookie(token)])
         page = await context.new_page()
 
         # 访问数据库监控页面
@@ -93,18 +71,7 @@ async def test_build_page() -> None:
         browser = await p.chromium.launch(headless=True)
         context = await browser.new_context()
         # 设置认证token
-        await context.add_cookies(
-            [
-                {
-                    'name': 'Admin-Token',
-                    'value': token,
-                    'domain': 'localhost',
-                    'path': '/',
-                    'httpOnly': False,
-                    'secure': False,
-                }
-            ]
-        )
+        await context.add_cookies([build_auth_cookie(token)])
         page = await context.new_page()
 
         # 访问数据库监控页面

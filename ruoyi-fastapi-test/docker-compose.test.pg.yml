@@ -41,7 +41,7 @@ services:
     container_name: ruoyi-pg-test
     environment:
       POSTGRES_PASSWORD: root
-      POSTGRES_DB: ruoyi-fastapi
+      POSTGRES_DB: truck_bank
       POSTGRES_INITDB_ARGS: --encoding=UTF8 --lc-collate=C --lc-ctype=C
     ports:
       - "15433:5432"
