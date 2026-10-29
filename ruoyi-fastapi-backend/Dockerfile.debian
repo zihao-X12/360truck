@@ -1,0 +1,25 @@
+# 运行期基础镜像：Debian 12（glibc 2.36）
+FROM python:3.10-slim-bookworm
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    TZ=Asia/Shanghai
+
+WORKDIR /app
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends tzdata \
+ && rm -rf /var/lib/apt/lists/*
+
+# requirements.txt 末行是 "."，先剔除项目自身，避免在 COPY 代码前安装失败
+COPY requirements.txt ./
+RUN grep -vx '\.' requirements.txt > /tmp/requirements-deps.txt \
+ && pip install -r /tmp/requirements-deps.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+
+COPY . .
+RUN pip install --no-deps . -i https://pypi.tuna.tsinghua.edu.cn/simple
+
+EXPOSE 9099
+CMD ["ruoyi", "app", "run", "--env=dockermy"]

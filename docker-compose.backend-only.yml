@@ -1,0 +1,52 @@
+# 方案 A（推荐）：只跑后端容器，前端用宿主机 nginx，MySQL 与 Redis 用宿主机服务
+#
+# 适用场景：银河麒麟 V10 内网，无法获取 nginx / redis 的 Docker 镜像。
+# 这样整个系统只需要「一个」镜像（后端），离线交付负担最小。
+#
+# 用法：
+#   cp .env.deploy.example .env && vi .env
+#   docker compose -f docker-compose.backend-only.yml up -d --no-build
+#
+# 前置条件：
+#   1) 宿主机已安装 MySQL 8 并在 127.0.0.1:3306 监听，库 truck_bank 已初始化
+#   2) 宿主机已安装 Redis 并在 127.0.0.1:6379 监听（dnf install redis && systemctl enable --now redis）
+#   3) 宿主机 nginx 已按 deploy/nginx/truck-bank.conf 配置并托管 dist/
+
+services:
+  ruoyi-backend-my:
+    image: ruoyi-backend-my:kylin
+    # 若用本文件构建（无预置镜像），把上一行换成下面 build 段并去掉 --no-build
+    # build:
+    #   context: ./ruoyi-fastapi-backend
+    #   dockerfile: Dockerfile.kylin
+    container_name: ruoyi-backend-my
+    # 宿主机网络：可直接访问 127.0.0.1:3306（MySQL）与 127.0.0.1:6379（Redis），
+    # 并让宿主机 nginx 通过 127.0.0.1:9099 反代本服务。
+    network_mode: host
+    volumes:
+      # 上传、回收站与下载目录；UploadSettings 使用相对路径，容器内固定 /app/vf_admin
+      - upload-data:/app/vf_admin
+    environment:
+      # OS 环境变量优先级高于镜像内 .env.dockermy
+      - DB_HOST=127.0.0.1
+      - DB_PORT=3306
+      - DB_USERNAME=${DB_USERNAME:-root}
+      - DB_PASSWORD=${DB_PASSWORD:?未设置 DB_PASSWORD，请先执行 cp .env.deploy.example .env 并填写}
+      - DB_DATABASE=${DB_DATABASE:-truck_bank}
+      - DB_ECHO=false
+      - REDIS_HOST=127.0.0.1
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:?未设置 JWT_SECRET_KEY，请先执行 cp .env.deploy.example .env 并填写}
+    restart: unless-stopped
+    healthcheck:
+      # 端口探测：容器内 python 已就绪，无需额外工具
+      test: ["CMD-SHELL", "python -c \"import socket,sys; s=socket.socket(); s.settimeout(2); sys.exit(0 if s.connect_ex(('127.0.0.1',9099))==0 else 1)\""]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  upload-data:
+    name: ruoyi-upload-data

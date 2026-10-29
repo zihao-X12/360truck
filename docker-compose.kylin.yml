@@ -1,0 +1,75 @@
+services:
+  # 前端服务（银河麒麟 V10 部署）
+  ruoyi-frontend:
+    build:
+      context: ./ruoyi-fastapi-frontend
+      dockerfile: Dockerfile
+    image: ruoyi-frontend:latest
+    container_name: ruoyi-frontend
+    # 宿主机网络模式：与后端同处宿主机网络栈，nginx 可用 127.0.0.1:9099 反代，
+    # 无需容器 DNS 与服务名解析。
+    network_mode: host
+    volumes:
+      - ./ruoyi-fastapi-frontend/bin/nginx.dockerkylin.conf:/etc/nginx/conf.d/default.conf:ro
+    # 注意：host 网络模式下 nginx 直接监听宿主机的 80 端口。
+    # 若 80 端口已被占用（宿主机已有 nginx/httpd），请改用
+    # ./ruoyi-fastapi-frontend/bin/nginx.dockerkylin-8080.conf 并放通 8080。
+    depends_on:
+      - ruoyi-backend-my
+    restart: unless-stopped
+
+  # 后端服务（MySQL 版）
+  ruoyi-backend-my:
+    build:
+      context: ./ruoyi-fastapi-backend
+      dockerfile: Dockerfile.kylin
+    image: ruoyi-backend-my:kylin
+    container_name: ruoyi-backend-my
+    # 宿主机网络模式：可直接访问宿主机上已部署的 MySQL（127.0.0.1:3306）
+    # 以及本文件中的 Redis 容器（映射到宿主机 127.0.0.1:6379）。
+    network_mode: host
+    volumes:
+      # 上传、回收站与下载目录。UploadSettings 使用相对路径且不可由环境变量覆盖，
+      # 容器内固定在 /app/vf_admin 下（upload_path、private_upload_path、
+      # file_trash_path、file_reconcile_quarantine_path、download_path）。
+      - upload-data:/app/vf_admin
+    environment:
+      # 覆盖镜像内 .env.dockermy 的值（OS 环境变量优先级高于 dotenv 文件）
+      - DB_HOST=127.0.0.1
+      - DB_PORT=3306
+      - DB_USERNAME=${DB_USERNAME:-root}
+      - DB_PASSWORD=${DB_PASSWORD:?未设置 DB_PASSWORD，请先执行 cp .env.deploy.example .env 并填写口令}
+      - DB_DATABASE=${DB_DATABASE:-truck_bank}
+      - DB_ECHO=false
+      - REDIS_HOST=127.0.0.1
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:?未设置 JWT_SECRET_KEY，请先执行 cp .env.deploy.example .env 并填写}
+    restart: unless-stopped
+
+  # Redis 服务（内网尚未部署 Redis，故随本编排一起部署）
+  ruoyi-redis:
+    image: redis:7.4.2
+    container_name: ruoyi-redis
+    # 仅监听宿主机回环，不对外暴露；后端以 127.0.0.1:6379 访问
+    ports:
+      - "127.0.0.1:6379:6379"
+    command: >
+      redis-server
+      --appendonly yes
+      --requirepass ${REDIS_PASSWORD:-}
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ${REDIS_PASSWORD:+-a $$REDIS_PASSWORD} ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+# 持久化卷
+volumes:
+  redis-data:
+    name: ruoyi-redis-data
+  upload-data:
+    name: ruoyi-upload-data

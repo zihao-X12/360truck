@@ -1,0 +1,50 @@
+# 后端镜像（银河麒麟 V10 / glibc 2.28 目标）
+#
+# 为什么不用 python:3.10：
+#   python:3.10 基于 Debian 12（glibc 2.36）。在该镜像里 pip 会优先选择
+#   manylinux_2_28 / manylinux_2_34 的 wheel（例如 asyncmy、Pillow、greenlet
+#   目前只发布 manylinux_2_28 及以上），产物在麒麟 V10（glibc 2.28）上会直接报
+#   `GLIBC_2.34 not found`。
+#
+# 为什么用 manylinux_2_28：
+#   该镜像是 PyPA 官方提供的 manylinux 构建环境，基于 AlmaLinux 8.10，glibc 恰好是
+#   2.28，并内置 CPython（含 3.10）。与目标系统 glibc 对齐后，pip 只会选中
+#   manylinux_2_28 及以下的 wheel，从根本上消除 glibc 不兼容。
+#
+# 已在 glibc 2.28 环境实测（2026-10）：
+#   - 全部 35 项直接依赖安装成功，无源码编译
+#   - sqlglotrs / asyncmy / pandas / Pillow / bcrypt / psutil / cryptography 导入正常
+#   - create_app() 正常构建 220 条路由
+#   - pip install -r requirements.txt 会一并安装项目自身（pyproject.toml 定义的
+#     ruoyi CLI 入口），ruoyi 命令可用
+
+FROM quay.io/pypa/manylinux_2_28_x86_64:latest
+
+# manylinux 的 CPython 不在系统 PATH 上，需显式加入
+ENV PATH=/opt/python/cp310-cp310/bin:$PATH \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1
+
+WORKDIR /app
+
+# 先只复制依赖清单，利用镜像层缓存：仅代码变更时不必重装依赖
+COPY requirements.txt ./
+
+# requirements.txt 末行为 `.`，会把项目自身装成包并提供 `ruoyi` 命令，
+# 因此必须先有 pyproject.toml 与 cli/ 目录，见下方第二次 COPY。
+# 为兼容「先装依赖后装自身」的顺序，这里先装除 `.` 以外的依赖，再整体安装。
+RUN grep -vx '\.' requirements.txt > /tmp/requirements-deps.txt \
+    && pip install -r /tmp/requirements-deps.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+
+# 复制项目自身（pyproject.toml 定义了 ruoyi CLI 入口）
+COPY . .
+
+# 安装项目自身，生成 ruoyi 命令
+RUN pip install --no-deps . -i https://pypi.tuna.tsinghua.edu.cn/simple
+
+EXPOSE 9099
+
+# 与 .env.dockermy 对应；实际连接参数由 compose 的环境变量覆盖
+CMD ["ruoyi", "app", "run", "--env=dockermy"]

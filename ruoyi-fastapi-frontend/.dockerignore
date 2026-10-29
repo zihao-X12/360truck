@@ -1,0 +1,24 @@
+# Docker 构建上下文排除项
+#
+# 缺失本文件时构建上下文约 789 MB，其中 node_modules 占 622 MB。
+# 注意：Windows 上安装的 node_modules 含 Windows 原生模块（如 esbuild/rollup 的
+# .node 二进制与 @esbuild/win32-x64 包），拷入 Linux 后 npm 会报模块缺失，
+# 必须在构建时排除并在镜像内重新 npm install。
+
+# 依赖与构建产物（镜像内重新安装）
+node_modules/
+dist/
+.npm/
+.npm-cache/
+.pnpm-store/
+
+# 版本控制与编辑器
+.git/
+.gitignore
+.idea/
+.vscode/
+
+# 缓存
+.cache/
+.eslintcache
+node_modules/.vite/
